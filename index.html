@@ -1,0 +1,2176 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Ocean Guard – Die Lernstrecke zum Meeresschutz</title>
+<style>
+  :root{
+    --deep:#021a29;
+    --panel:rgba(3,27,41,0.93);
+    --panel2:rgba(255,255,255,0.05);
+    --line:rgba(255,255,255,0.12);
+    --accent:#3fd6c0;
+    --accent2:#1e9e8a;
+    --gold:#ffd36b;
+    --danger:#ff6b6b;
+    --violet:#b48cff;
+    --text:#eaf6fa;
+    --muted:#9fc6d4;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    background:var(--deep); color:var(--text);
+    font-family:'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
+    user-select:none; -webkit-user-select:none;
+  }
+  #app{position:fixed; inset:0; overflow:hidden;}
+  #game{position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none;}
+
+  /* ---------- HUD ---------- */
+  #hud{
+    position:absolute; top:0; left:0; right:0; z-index:20;
+    display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+    padding:12px 16px 28px;
+    background:linear-gradient(to bottom, rgba(1,18,30,0.72), rgba(1,18,30,0));
+    pointer-events:none; flex-wrap:wrap;
+  }
+  .hudGroup{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+  .chip{
+    display:flex; align-items:center; gap:8px;
+    background:rgba(3,28,44,0.72); border:1px solid var(--line);
+    padding:7px 13px; border-radius:22px; font-weight:650; font-size:15px;
+    backdrop-filter:blur(4px); white-space:nowrap;
+  }
+  .chip .lbl{font-weight:500; color:var(--muted); font-size:12.5px;}
+  .chip .bar{width:84px; height:8px; background:rgba(255,255,255,0.14); border-radius:6px; overflow:hidden;}
+  .chip .fill{height:100%; width:0%; border-radius:6px; transition:width .25s ease;}
+  .fill.red{background:linear-gradient(90deg,#ff9a8a,#ff3b3b);}
+  .fill.teal{background:linear-gradient(90deg,#a6eadb,#3fd6c0);}
+  .fill.violet{background:linear-gradient(90deg,#d6c2ff,#9a6bff);}
+  .fill.gold{background:linear-gradient(90deg,#ffe58a,#ffb020);}
+  .chip.levelChip{color:var(--gold); font-size:14px;}
+  .chip.warn{animation:warnPulse .8s ease-in-out infinite;}
+  @keyframes warnPulse{0%,100%{border-color:var(--line);} 50%{border-color:#ff6b6b; box-shadow:0 0 14px rgba(255,90,90,.5);}}
+  .iconBtn{
+    pointer-events:auto; appearance:none; border:1px solid var(--line); cursor:pointer;
+    width:46px; height:46px; border-radius:50%;
+    background:rgba(3,28,44,0.78); color:var(--text); font-size:19px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .iconBtn:active{transform:scale(.94);}
+
+  #homeBtn{position:absolute; top:14px; left:14px; z-index:60;}
+
+  /* coach hint */
+  #coach{
+    position:absolute; left:50%; top:84px; transform:translateX(-50%);
+    z-index:25; pointer-events:none; max-width:min(720px,92vw);
+    background:rgba(3,28,44,0.88); border:1px solid rgba(63,214,192,0.5);
+    color:#fff; padding:12px 20px; border-radius:16px; font-size:16.5px; font-weight:600;
+    text-align:center; box-shadow:0 10px 30px rgba(0,0,0,.35);
+    opacity:0; transition:opacity .4s ease, transform .4s ease;
+  }
+  #coach.show{opacity:1; transform:translateX(-50%) translateY(4px);}
+
+  /* measures (Level 5) */
+  #measures{
+    position:absolute; left:50%; bottom:12px; transform:translateX(-50%);
+    z-index:22; display:flex; gap:10px; pointer-events:auto; flex-wrap:nowrap;
+    max-width:96vw; overflow-x:auto;
+  }
+  .measure{
+    appearance:none; cursor:pointer; text-align:left;
+    display:flex; align-items:center; gap:10px; min-width:170px;
+    background:rgba(3,28,44,0.9); color:var(--text);
+    border:1.5px solid rgba(255,255,255,0.2); border-radius:14px; padding:9px 12px;
+    font-family:inherit; transition:transform .15s ease, border-color .2s ease, opacity .2s;
+  }
+  .measure .mi{font-size:26px;}
+  .measure .mt{font-size:13.5px; font-weight:700; line-height:1.2;}
+  .measure .mc{font-size:12.5px; color:var(--gold); font-weight:700; margin-top:2px;}
+  .measure.ready{border-color:var(--gold); box-shadow:0 0 16px rgba(255,211,107,.35);}
+  .measure.locked{opacity:.55;}
+  .measure.done{border-color:var(--accent); background:rgba(20,90,80,.9);}
+  .measure.done .mc{color:var(--accent);}
+  .measure:active{transform:scale(.96);}
+
+  /* ---------- Overlays ---------- */
+  .screen{
+    position:absolute; inset:0; z-index:50;
+    display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at center, rgba(3,40,60,0.55), rgba(1,12,20,0.88));
+    padding:20px;
+  }
+  .screen.light{background:rgba(1,12,20,0.55);}
+  .hidden{display:none !important;}
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:22px;
+    max-width:760px; width:100%; max-height:92vh; overflow-y:auto;
+    padding:30px 34px; box-shadow:0 24px 70px rgba(0,0,0,0.55);
+    text-align:center; animation:cardIn .35s ease both;
+    scrollbar-width:thin;
+  }
+  .card.wide{max-width:1080px;}
+  @keyframes cardIn{from{opacity:0; transform:translateY(16px) scale(.98);} to{opacity:1; transform:none;}}
+  .card h1{margin:0 0 6px; font-size:32px; letter-spacing:.3px;}
+  .card h2{margin:22px 0 10px; font-size:19px; color:var(--accent);}
+  .card p{line-height:1.6; color:#d8ecf2; font-size:16px; margin:8px 0;}
+  .kicker{color:var(--gold); font-weight:700; letter-spacing:.14em; text-transform:uppercase; font-size:12.5px;}
+  .subtitle{color:#9fd6e6; font-size:17px; margin-bottom:10px;}
+  .btn{
+    appearance:none; border:none; cursor:pointer; font-family:inherit;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#03231d; font-weight:750; font-size:17px;
+    padding:14px 30px; border-radius:32px; margin:6px;
+    box-shadow:0 8px 20px rgba(63,214,192,0.32);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:active{transform:scale(.96);}
+  .btn.secondary{background:transparent; color:#d6f1f4; border:1.5px solid rgba(255,255,255,0.35); box-shadow:none;}
+  .btn.gold{background:linear-gradient(135deg,#ffe08a,#f3a91d); color:#3a2500; box-shadow:0 8px 20px rgba(255,190,60,.3);}
+  .btnRow{display:flex; justify-content:center; flex-wrap:wrap; margin-top:18px;}
+
+  .heroIcons{font-size:40px; letter-spacing:10px; margin:6px 0 10px;}
+  .heroIcons span{display:inline-block; animation:bob 3s ease-in-out infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0);} 50%{transform:translateY(-7px);}}
+
+  /* level map */
+  .map{display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-top:18px; position:relative;}
+  .node{
+    position:relative; appearance:none; border:1.5px solid var(--line); cursor:pointer;
+    background:var(--panel2); color:var(--text); border-radius:18px; padding:16px 10px 14px;
+    font-family:inherit; display:flex; flex-direction:column; align-items:center; gap:6px;
+    transition:transform .15s ease, border-color .2s ease; min-height:200px;
+  }
+  .node:active{transform:scale(.97);}
+  .node .num{width:34px; height:34px; border-radius:50%; background:rgba(63,214,192,.18); color:var(--accent); font-weight:800; display:flex; align-items:center; justify-content:center;}
+  .node .ico{font-size:40px; line-height:1.1;}
+  .node .nt{font-weight:750; font-size:15.5px; line-height:1.25;}
+  .node .np{font-size:12.5px; color:var(--muted); line-height:1.35;}
+  .node .st{font-size:19px; letter-spacing:2px; color:var(--gold); margin-top:auto;}
+  .node .st .off{color:rgba(255,255,255,.22);}
+  .node.current{border-color:var(--gold); box-shadow:0 0 22px rgba(255,211,107,.25);}
+  .node.done{border-color:rgba(63,214,192,.6);}
+  .node.locked{opacity:.45; cursor:not-allowed;}
+  .node.locked .ico{filter:grayscale(1);}
+  .node .lock{position:absolute; top:10px; right:12px; font-size:16px;}
+  @media (max-width:820px){ .map{grid-template-columns:repeat(2,1fr);} }
+
+  /* briefing */
+  .infoGrid{display:grid; grid-template-columns:1fr 1fr; gap:14px; text-align:left; margin-top:16px;}
+  .box{background:var(--panel2); border:1px solid var(--line); border-radius:16px; padding:14px 16px;}
+  .box h3{margin:0 0 8px; font-size:15px; color:var(--gold); letter-spacing:.04em;}
+  .box ul{margin:0; padding-left:0; list-style:none;}
+  .box li{display:flex; gap:10px; align-items:flex-start; margin:7px 0; font-size:15px; line-height:1.45; color:#dbeff4;}
+  .box li .li{font-size:20px; line-height:1.2; flex:0 0 26px; text-align:center;}
+  .goals{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px;}
+  .goal{background:rgba(255,211,107,.1); border:1px solid rgba(255,211,107,.35); border-radius:20px; padding:7px 14px; font-weight:650; font-size:14.5px;}
+  @media (max-width:640px){ .infoGrid{grid-template-columns:1fr;} .tips{grid-template-columns:1fr 1fr;} }
+
+  /* results */
+  .stars{font-size:52px; letter-spacing:8px; margin:6px 0 2px;}
+  .stars span{display:inline-block; color:rgba(255,255,255,.18); transform:scale(.6); transition:transform .4s cubic-bezier(.2,1.6,.4,1), color .3s;}
+  .stars span.on{color:var(--gold); transform:scale(1); text-shadow:0 0 18px rgba(255,211,107,.6);}
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-top:14px;}
+  .stat{background:var(--panel2); border:1px solid var(--line); border-radius:14px; padding:10px;}
+  .stat .v{font-size:24px; font-weight:800;}
+  .stat .k{font-size:12.5px; color:var(--muted);}
+  .facts{display:grid; grid-template-columns:1fr; gap:12px; text-align:left; margin-top:8px;}
+  .fact{display:flex; gap:14px; align-items:flex-start; background:var(--panel2); border:1px solid var(--line); border-radius:16px; padding:14px;}
+  .fact .fi{width:62px; height:62px; flex:0 0 auto; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:32px; background:linear-gradient(135deg,#0d4a63,#083247); overflow:hidden;}
+  .fact .fi img{width:100%; height:100%; object-fit:cover;}
+  .fact h3{margin:0 0 4px; font-size:16px;}
+  .fact p{margin:0; font-size:14.5px; line-height:1.5; color:#cfe7ee;}
+
+  /* quiz */
+  .opts{display:grid; gap:10px; margin-top:16px;}
+  .opt{
+    appearance:none; cursor:pointer; font-family:inherit; text-align:left;
+    background:var(--panel2); color:var(--text); border:1.5px solid var(--line);
+    border-radius:14px; padding:14px 16px; font-size:16px; line-height:1.4;
+    display:flex; gap:12px; align-items:center; transition:border-color .2s, background .2s;
+  }
+  .opt .ol{width:30px; height:30px; flex:0 0 auto; border-radius:50%; background:rgba(255,255,255,.1); display:flex; align-items:center; justify-content:center; font-weight:800;}
+  .opt.correct{border-color:#3fd6a0; background:rgba(63,214,160,.16);}
+  .opt.wrong{border-color:#ff6b6b; background:rgba(255,107,107,.14);}
+  .opt:disabled{cursor:default;}
+  .feedback{margin-top:14px; padding:14px 16px; border-radius:14px; text-align:left; font-size:15px; line-height:1.55; background:rgba(63,214,192,.08); border:1px solid rgba(63,214,192,.3);}
+  .feedback b{color:var(--accent);}
+  .feedback.bad{background:rgba(255,107,107,.08); border-color:rgba(255,107,107,.3);}
+  .feedback.bad b{color:#ff9a9a;}
+
+  /* final */
+  .certificate{border:2px solid rgba(255,211,107,.45); border-radius:20px; padding:20px; margin-top:10px; background:linear-gradient(160deg,rgba(255,211,107,.07),rgba(63,214,192,.05));}
+  .lessons{display:grid; grid-template-columns:1fr; gap:8px; text-align:left; margin-top:12px;}
+  .lesson{display:flex; gap:12px; align-items:center; font-size:15px; line-height:1.45; background:var(--panel2); border-radius:12px; padding:10px 12px;}
+  .lesson .li{font-size:24px;}
+  .tips{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:12px;}
+  .tip{background:var(--panel2); border:1px solid var(--line); border-radius:14px; padding:12px; text-align:left; font-size:14.5px; line-height:1.45;}
+  .tip .ti{font-size:26px; display:block; margin-bottom:4px;}
+
+  .note{margin-top:14px; font-size:12px; color:#7fa9b8;}
+
+  @media (max-width:560px){
+    .card{padding:22px 16px;}
+    .card h1{font-size:24px;}
+    .chip{font-size:13px; padding:6px 10px;}
+    .chip .bar{width:52px;}
+    .chip .lbl{display:none;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <div id="hud" class="hidden">
+    <div class="hudGroup" id="hudLeft"></div>
+    <div class="hudGroup" id="hudRight"></div>
+  </div>
+  <div id="coach"></div>
+  <div id="measures" class="hidden"></div>
+
+  <button class="iconBtn" id="homeBtn" title="Zurück zum Hauptmenü">⌂</button>
+
+  <!-- START -->
+  <div id="sStart" class="screen">
+    <div class="card">
+      <div class="heroIcons"><span>🐢</span><span style="animation-delay:.3s">🐬</span><span style="animation-delay:.6s">🐋</span><span style="animation-delay:.9s">🦭</span><span style="animation-delay:1.2s">🦈</span><span style="animation-delay:1.5s">🐟</span></div>
+      <div class="kicker">Digitale Lernstrecke</div>
+      <h1>Ocean Guard</h1>
+      <p class="subtitle">Rette die Meeresbewohner vor dem Plastikmüll</p>
+      <p>In fünf Leveln folgst du dem Weg des Plastiks: von der Tüte, die wie eine Qualle aussieht, über Geisternetze und den Zerfall am Meeresboden bis zum unsichtbaren Mikroplastik. Zum Schluss stoppst du den Müll dort, wo er herkommt.</p>
+      <div class="btnRow">
+        <button class="btn" id="btnStart">▶ Lernstrecke starten</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div id="sMap" class="screen hidden">
+    <div class="card wide">
+      <div class="kicker">Deine Lernstrecke</div>
+      <h1>Der Weg des Plastiks</h1>
+      <p>Jedes Level zeigt einen anderen Teil des Problems. Schaffe ein Level, um das nächste freizuschalten.</p>
+      <div class="map" id="mapGrid"></div>
+      <div class="btnRow"><button class="btn secondary" id="btnMapBack">Zurück</button></div>
+    </div>
+  </div>
+
+  <!-- BRIEFING -->
+  <div id="sBrief" class="screen hidden">
+    <div class="card" id="briefCard"></div>
+  </div>
+
+  <!-- PAUSE -->
+  <div id="sPause" class="screen light hidden">
+    <div class="card" style="max-width:440px">
+      <h1>Pause</h1>
+      <p>Das Meer wartet auf dich.</p>
+      <div class="btnRow" style="flex-direction:column; align-items:center">
+        <button class="btn" id="btnResume">▶ Weiterspielen</button>
+        <button class="btn secondary" id="btnRestartLvl">↻ Level neu starten</button>
+        <button class="btn secondary" id="btnPauseMap">Zur Übersicht</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="sResult" class="screen hidden">
+    <div class="card" id="resultCard"></div>
+  </div>
+
+  <!-- QUIZ -->
+  <div id="sQuiz" class="screen hidden">
+    <div class="card" id="quizCard"></div>
+  </div>
+
+  <!-- FINAL -->
+  <div id="sFinal" class="screen hidden">
+    <div class="card wide" id="finalCard"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   BILD-PLATZHALTER (optional)
+   URLs eintragen, um gezeichnete Grafiken durch Bilder zu
+   ersetzen. Leere Strings = Vektor-Grafik.
+   ========================================================= */
+const IMAGE_URLS = {
+  fisch:"", delfin:"", wal:"", schildkroete:"", hai:"", seehund:"",
+  tuete:"", folie:"", becher:"", strohhalm:"", flasche:"", ringe:"", netz:""
+};
+const loadedImages = {};
+Object.keys(IMAGE_URLS).forEach(k=>{
+  const u = IMAGE_URLS[k]; if(!u) return;
+  const img = new Image(); img.onload = ()=>{ loadedImages[k]=img; }; img.src = u;
+});
+
+/* ================= HELPERS ================= */
+const $ = id => document.getElementById(id);
+const rand = (a,b)=> a + Math.random()*(b-a);
+const clamp = (v,a,b)=> Math.max(a, Math.min(b,v));
+const lerp = (a,b,t)=> a + (b-a)*t;
+const dist = (x1,y1,x2,y2)=> Math.hypot(x1-x2, y1-y2);
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+function pickWeighted(obj){
+  let sum = 0; for(const k in obj) sum += obj[k];
+  let r = Math.random()*sum;
+  for(const k in obj){ r -= obj[k]; if(r <= 0) return k; }
+  return Object.keys(obj)[0];
+}
+const TAU = Math.PI*2;
+
+/* ================= CANVAS ================= */
+const canvas = $("game");
+const ctx = canvas.getContext("2d");
+const DPR = Math.min(2, window.devicePixelRatio || 1);
+let W=0, H=0, S=1, floorY=0, surfaceY=0;
+let bgCanvas = null, vignetteCanvas = null;
+
+/* ================= CONTENT: MÜLL ================= */
+// vy in px/ms (bei Skalierung 1). years = geschätzte Zerfallsdauer (NOAA / Woods Hole, Schätzwerte)
+const TRASH = {
+  tuete:     {label:"Plastiktüte",      vy:.036, r:24, micro:5,  decay:7000,  pts:9,  years:"10–20 Jahre",  sway:1.7, edible:true},
+  folie:     {label:"Plastikfolie",     vy:.032, r:20, micro:4,  decay:6500,  pts:8,  years:"10–20 Jahre",  sway:1.3, edible:true},
+  becher:    {label:"Plastikbecher",    vy:.068, r:15, micro:3,  decay:5500,  pts:6,  years:"ca. 50 Jahre", sway:.5,  edible:true},
+  strohhalm: {label:"Trinkhalm",        vy:.06,  r:14, micro:2,  decay:5000,  pts:6,  years:"ca. 200 Jahre",sway:.6,  edible:true},
+  flasche:   {label:"PET-Flasche",      vy:.082, r:18, micro:6,  decay:8500,  pts:10, years:"ca. 450 Jahre",sway:.4,  edible:true},
+  ringe:     {label:"Sixpack-Ring",     vy:.05,  r:18, micro:3,  decay:7000,  pts:10, years:"ca. 400 Jahre",sway:.8,  entangle:true},
+  netz:      {label:"Geisternetz",      vy:.006, r:42, micro:10, decay:12000, pts:22, years:"ca. 600 Jahre",sway:.3,  entangle:true, hp:3},
+  fragment:  {label:"Bruchstück",       vy:.05,  r:7,  micro:2,  decay:4200,  pts:3,  years:"",             sway:.3,  edible:true}
+};
+
+/* ================= CONTENT: TIERE ================= */
+const ANIMALS = {
+  fisch:        {label:"Fisch",             speed:[.07,.12],  size:16, band:[.12,.85]},
+  schildkroete: {label:"Meeresschildkröte", speed:[.045,.075],size:26, band:[.18,.8]},
+  delfin:       {label:"Delfin",            speed:[.1,.15],   size:32, band:[.15,.6]},
+  seehund:      {label:"Seehund",           speed:[.08,.12],  size:24, band:[.15,.75]},
+  hai:          {label:"Hai",               speed:[.08,.12],  size:38, band:[.2,.6]},
+  wal:          {label:"Wal",               speed:[.035,.055],size:60, band:[.3,.55]}
+};
+const FISH_PALETTES = [
+  {top:"#ff8a3d", belly:"#ffd2a1", fin:"#e2602a"},
+  {top:"#3b7bff", belly:"#a8d4ff", fin:"#ffd23d"},
+  {top:"#ffd23d", belly:"#fff1b8", fin:"#e0a81a"},
+  {top:"#ff5f8f", belly:"#ffc2d4", fin:"#d93a6c"}
+];
+
+/* ================= THEMES ================= */
+const THEMES = {
+  kueste: {water:["#8fe6f0","#36b6d3","#157ea5","#0a5478"], sand:["#f1dba4","#d8ba7a"], coral:true,  rocks:4,  far:"rgba(10,60,90,.22)"},
+  offen:  {water:["#62c6e8","#1f80b8","#0d4f86","#052c52"], sand:["#cdb686","#a88f5d"], coral:false, rocks:3,  far:"rgba(5,30,60,.28)"},
+  grund:  {water:["#3a9ec4","#165f8a","#0a3a5c","#03192c"], sand:["#bba57c","#8f7a55"], coral:false, rocks:9,  far:"rgba(0,15,30,.35)"},
+  trueb:  {water:["#78bcae","#2f7f7a","#18535a","#0a2c35"], sand:["#a99b74","#857852"], coral:false, rocks:5,  far:"rgba(5,30,30,.3)", murk:true},
+  quelle: {water:["#7fd8ea","#2ea3c8","#136f98","#0a4a6c"], sand:["#efd7a0","#d3b273"], coral:true,  rocks:3,  far:"rgba(10,60,90,.2)", sky:true}
+};
+
+/* ================= LEVELS ================= */
+const LEVELS = [
+  {
+    id:1, theme:"kueste", icon:"🐢", name:"Die Verwechslung", topic:"Plastik sieht aus wie Futter",
+    duration:45000, maxDeaths:6, maxMicro:50,
+    trash:{tuete:5, folie:2, becher:2, strohhalm:1},
+    animals:["schildkroete","schildkroete","fisch","fisch","fisch"],
+    trashEvery:[1900,1000], animalEvery:[1700,1150], sinkRamp:.8,
+    jelly:true,
+    coach:"Tippe auf den Müll – aber lass die Quallen in Ruhe, sie sind Futter für die Schildkröten!",
+    story:"An einer sonnigen Küste treiben Plastiktüten im Wasser. Für eine Meeresschildkröte sieht eine Tüte fast genauso aus wie ihre Lieblingsspeise: eine Qualle.",
+    learn:[
+      ["🪼","Meerestiere verwechseln Plastik mit Nahrung."],
+      ["🍽️","Verschlucktes Plastik füllt den Magen, ohne satt zu machen."]
+    ],
+    howto:[
+      ["👆","Tippe auf treibenden Müll, um ihn einzusammeln."],
+      ["🚫","Echte Quallen nicht antippen – das kostet Punkte."],
+      ["⏳","Müll am Boden zerfällt nach kurzer Zeit zu Mikroplastik."]
+    ],
+    facts:[
+      {icon:"🐢", title:"Tüte oder Qualle?", text:"Im Wasser treibende Plastiktüten ähneln Quallen, der Hauptnahrung vieler Meeresschildkröten. Schätzungen zufolge hat etwa die Hälfte aller Meeresschildkröten schon einmal Plastik gefressen."},
+      {icon:"🐟", title:"Satt vom Plastik", text:"Auch Fische halten kleine Plastikteile für Plankton oder Fischeier. Das Plastik sammelt sich im Magen, täuscht Sättigung vor und die Tiere fressen zu wenig echte Nahrung."},
+      {icon:"⏳", title:"Es verschwindet nicht", text:"Eine Plastiktüte braucht im Meer etwa 10–20 Jahre, bis sie zerfallen ist. Dabei löst sie sich nicht auf, sondern zerbricht in immer kleinere Teile."}
+    ],
+    quiz:[
+      {q:"Warum fressen Meeresschildkröten Plastiktüten?",
+       o:["Sie verwechseln die Tüten mit Quallen.","Plastik schmeckt ihnen besonders gut.","Sie wollen damit ihren Panzer reinigen."], a:0,
+       e:"Treibende Tüten sehen Quallen zum Verwechseln ähnlich. Schildkröten können den Unterschied oft nicht erkennen."},
+      {q:"Was passiert mit einer Plastiktüte, die im Meer bleibt?",
+       o:["Sie löst sich nach ein paar Tagen auf.","Sie zerfällt über Jahre in immer kleinere Stücke.","Sie wird von Bakterien vollständig gefressen."], a:1,
+       e:"Plastik wird im Meer kaum abgebaut. Es zerbricht über 10–20 Jahre in immer kleinere Teile, bis hin zu Mikroplastik."}
+    ]
+  },
+  {
+    id:2, theme:"offen", icon:"🕸️", name:"Geisternetze", topic:"Verlorene Netze fischen weiter",
+    duration:50000, maxDeaths:6, maxMicro:60,
+    trash:{netz:3, ringe:3, tuete:2, flasche:1},
+    animals:["delfin","seehund","hai","schildkroete","fisch","delfin"],
+    trashEvery:[2100,1100], animalEvery:[1700,1100], sinkRamp:.9,
+    rescue:true, trapTime:3800,
+    coach:"Netze brauchen 3 Tipps! Verfängt sich ein Tier, befreie es schnell – die Zeit läuft!",
+    story:"Draußen auf dem offenen Meer treiben verlorene Fischernetze. Niemand holt sie zurück, also fangen sie weiter: Delfine, Robben, Haie und Schildkröten.",
+    learn:[
+      ["🕸️","Geisternetze sind verlorene oder zurückgelassene Fischernetze."],
+      ["🫧","Wer sich verfängt und nicht auftauchen kann, ertrinkt."]
+    ],
+    howto:[
+      ["👆👆👆","Netze sind zäh: Tippe sie dreimal an."],
+      ["⏱️","Verfangene Tiere zeigen einen roten Zeitring – befreie sie, bevor er abläuft."],
+      ["♻️","Auch Sixpack-Ringe können Tiere einschnüren."]
+    ],
+    facts:[
+      {icon:"🐬", title:"Gefangen unter Wasser", text:"Delfine, Robben und Meeresschildkröten müssen zum Atmen an die Oberfläche. Verfangen sie sich in einem Netz, können sie ertrinken."},
+      {icon:"🕸️", title:"Netze fischen weiter", text:"Ein verlorenes Netz hört nicht auf zu fangen. Im Großen Pazifischen Müllstrudel besteht Schätzungen zufolge fast die Hälfte der Müllmasse aus Fischereinetzen."},
+      {icon:"🦭", title:"Schnüren ein", text:"Robben verfangen sich oft in Netzresten oder Verpackungsbändern. Wächst das Tier weiter, schneidet das Material immer tiefer ins Fleisch."}
+    ],
+    quiz:[
+      {q:"Was ist ein Geisternetz?",
+       o:["Ein Netz, das nachts leuchtet.","Ein verlorenes Fischernetz, das weiter Tiere fängt.","Ein Netz, mit dem Forschende Plankton sammeln."], a:1,
+       e:"Geisternetze sind verloren gegangene oder zurückgelassene Netze. Sie treiben jahrelang durchs Meer und fangen weiter Tiere."},
+      {q:"Warum sind Geisternetze für Delfine besonders gefährlich?",
+       o:["Delfine müssen zum Atmen auftauchen.","Delfine sind farbenblind.","Delfine schwimmen nur nachts."], a:0,
+       e:"Delfine sind Säugetiere und atmen Luft. Hält sie ein Netz unter Wasser fest, ertrinken sie."}
+    ]
+  },
+  {
+    id:3, theme:"grund", icon:"🪨", name:"Zerfall am Meeresgrund", topic:"Aus großem Müll wird Mikroplastik",
+    duration:50000, maxDeaths:7, maxMicro:70,
+    trash:{tuete:2, folie:2, becher:2, strohhalm:2, flasche:3, ringe:1, netz:1},
+    animals:["fisch","fisch","schildkroete","delfin","seehund","hai","wal"],
+    trashEvery:[1700,800], animalEvery:[1600,1050], sinkRamp:1.2,
+    rescue:true, trapTime:3500, fragment:true, current:true, showYears:true,
+    coach:"Müll, der am Boden liegt, kannst du auch noch einsammeln – bevor er zerbricht!",
+    story:"Tief unten am Meeresgrund sammelt sich, was niemand aufhält. Strömungen treiben den Müll umher. Sand, Wellen und Licht zerreiben ihn Stück für Stück.",
+    learn:[
+      ["🧩","Plastik zerbricht in Bruchstücke und dann in Mikroplastik."],
+      ["📅","Manche Gegenstände bleiben Hunderte Jahre im Meer."]
+    ],
+    howto:[
+      ["🌊","Eine Strömung schiebt den Müll hin und her."],
+      ["🪨","Liegender Müll zerbricht erst in Bruchstücke – sammle auch diese ein."],
+      ["📅","Beim Einsammeln siehst du, wie lange der Gegenstand im Meer überdauert hätte."]
+    ],
+    facts:[
+      {icon:"🧩", title:"Zerkleinert, nicht abgebaut", text:"UV-Licht, Wellen und Sand zerreiben Plastik in immer kleinere Teile. Kunststoff wird in der Umwelt dabei kaum vollständig abgebaut."},
+      {icon:"📅", title:"Jahrhunderte im Meer", text:"Schätzungen für die Zerfallsdauer: Plastikbecher etwa 50 Jahre, Trinkhalm etwa 200 Jahre, PET-Flasche etwa 450 Jahre, Angelschnur und Netze etwa 600 Jahre."},
+      {icon:"🐋", title:"Der Magen ist voll", text:"Bei gestrandeten Walen wurden schon viele Kilogramm Plastik im Magen gefunden. Echte Nahrung passt dann nicht mehr hinein."}
+    ],
+    quiz:[
+      {q:"Was passiert mit Plastik am Meeresboden?",
+       o:["Es wird zu Sand und ist dann ungefährlich.","Es zerbricht in immer kleinere Stücke bis zu Mikroplastik.","Es schwimmt nach einiger Zeit von selbst zum Strand."], a:1,
+       e:"Plastik zerfällt in Fragmente und schließlich in Mikroplastik. Die Teilchen bleiben im Sediment und im Wasser."},
+      {q:"Wie lange überdauert eine PET-Flasche im Meer ungefähr?",
+       o:["Etwa 5 Jahre","Etwa 50 Jahre","Etwa 450 Jahre"], a:2,
+       e:"Für eine PET-Flasche werden etwa 450 Jahre geschätzt. Das ist länger, als es die Flasche überhaupt gibt: Plastikflaschen sind erst seit rund 50 Jahren verbreitet."}
+    ]
+  },
+  {
+    id:4, theme:"trueb", icon:"🔬", name:"Die unsichtbare Gefahr", topic:"Mikroplastik in der Nahrungskette",
+    duration:50000, maxDeaths:8, maxLoad:60,
+    trash:{flasche:1, tuete:1, becher:1},
+    animals:["fisch","fisch","fisch","wal","hai"],
+    trashEvery:[4200,2800], animalEvery:[1500,1000], sinkRamp:.6,
+    filter:true, plankton:true, microSources:true, fragment:false,
+    coach:"Halte den Finger gedrückt und wische durchs Wasser, um Mikroplastik zu filtern. Verschone das grüne Plankton!",
+    story:"Das Wasser sieht trüb aus. Überall schweben winzige Teilchen: Fasern aus der Waschmaschine, Reifenabrieb von der Straße, Kügelchen aus Kosmetik. Dazwischen lebt das Plankton.",
+    learn:[
+      ["🔬","Mikroplastik ist kleiner als 5 Millimeter und kommt aus vielen Quellen."],
+      ["🐟","Es gelangt über das Fressen in die Nahrungskette."]
+    ],
+    howto:[
+      ["🖐️","Gedrückt halten und wischen: dein Filter fängt Mikroplastik."],
+      ["🟢","Grünes Plankton ist Nahrung – nicht mitfiltern!"],
+      ["☣️","Tiere, die durch Mikroplastik schwimmen, nehmen es auf. Die Belastung darf nicht zu hoch werden."]
+    ],
+    facts:[
+      {icon:"🧺", title:"Viele Quellen", text:"Mikroplastik entsteht aus zerfallendem Müll, aber auch aus Kunstfasern beim Waschen von Kleidung, aus Reifenabrieb und aus manchen Kosmetikprodukten."},
+      {icon:"🐟", title:"Die Nahrungskette hinauf", text:"Plankton und kleine Fische nehmen Mikroplastik auf. Werden sie gefressen, wandert es weiter zu größeren Tieren. Filtrierer wie Walhaie und Bartenwale schlucken besonders viel."},
+      {icon:"🧂", title:"Auch beim Menschen", text:"Mikroplastik wurde bereits in Meeresfrüchten, Speisesalz, Trinkwasser und sogar im menschlichen Blut nachgewiesen."}
+    ],
+    quiz:[
+      {q:"Ab welcher Größe spricht man von Mikroplastik?",
+       o:["Kleiner als 5 Millimeter","Kleiner als 5 Zentimeter","Kleiner als 1 Meter"], a:0,
+       e:"Kunststoffteilchen unter 5 Millimetern gelten als Mikroplastik. Viele sind so klein, dass man sie nicht mehr sieht."},
+      {q:"Warum lässt sich Mikroplastik kaum aus dem Meer entfernen?",
+       o:["Es sinkt sofort auf den Boden und löst sich auf.","Die Teilchen sind winzig, überall verteilt und mit Plankton vermischt.","Es ist zu schwer, um es zu filtern."], a:1,
+       e:"Ein Filter, der Mikroplastik fängt, fängt auch Plankton. Darum ist es so wichtig, dass Plastik gar nicht erst ins Meer gelangt."}
+    ]
+  },
+  {
+    id:5, theme:"quelle", icon:"🏭", name:"An der Quelle", topic:"Vermeiden ist besser als aufräumen",
+    duration:60000, maxDeaths:8, maxMicro:80,
+    trash:{}, animals:["fisch","schildkroete","delfin","seehund","fisch","hai"],
+    trashEvery:[99999,99999], animalEvery:[1600,1100], sinkRamp:.8,
+    rescue:true, trapTime:3600, fragment:true, sources:true, surface:true,
+    coach:"Sammle Müll und verdiene Budget. Setze damit unten Maßnahmen ein, die den Müll an der Quelle stoppen!",
+    story:"Jetzt siehst du, woher der Müll kommt: aus dem Fluss, vom Strand und von Fischerbooten. Einsammeln allein reicht nicht. Du musst die Quellen schließen.",
+    learn:[
+      ["🏞️","Der meiste Meeresmüll kommt vom Land, oft über Flüsse."],
+      ["🛑","Vermeiden wirkt stärker als jedes Aufräumen."]
+    ],
+    howto:[
+      ["👆","Sammle Müll – jeder Treffer bringt Budget."],
+      ["🛠️","Setze mit dem Budget Maßnahmen ein: Kläranlage, Pfand, Netz-Rücknahme, weniger Einwegplastik."],
+      ["📉","Jede Maßnahme lässt eine Müllquelle versiegen."]
+    ],
+    facts:[
+      {icon:"🏞️", title:"Vom Land ins Meer", text:"Der größte Teil des Plastiks im Meer stammt vom Land. Flüsse, Abwasser und Wind tragen ihn an die Küsten."},
+      {icon:"♻️", title:"Pfand wirkt", text:"Wo es Pfand und Mehrweg gibt, landen deutlich weniger Flaschen und Dosen in der Natur, weil sie einen Wert haben und zurückgegeben werden."},
+      {icon:"🛑", title:"Vermeiden zuerst", text:"Müll im Meer einzusammeln ist mühsam und teuer, Mikroplastik lässt sich kaum zurückholen. Am wirksamsten ist es, wenn Plastik gar nicht erst ins Meer gelangt."}
+    ],
+    quiz:[
+      {q:"Woher stammt der größte Teil des Plastikmülls im Meer?",
+       o:["Vom Land, zum Beispiel über Flüsse","Von Kreuzfahrtschiffen","Aus Unterwasser-Vulkanen"], a:0,
+       e:"Der überwiegende Teil gelangt vom Land ins Meer: über Flüsse, Abwasser, Wind und direkt von Stränden."},
+      {q:"Welche Lösung hilft dem Meer am meisten?",
+       o:["Mehr Müll am Strand einsammeln","Verhindern, dass Plastik überhaupt ins Meer gelangt","Plastik auf dem Meer verbrennen"], a:1,
+       e:"Aufräumen ist wichtig, aber Vermeiden wirkt am stärksten: weniger Einwegplastik, Pfand, gute Abfallentsorgung und Kläranlagen."}
+    ]
+  }
+];
+
+/* Maßnahmen für Level 5 */
+const MEASURES = [
+  {id:"fluss",  icon:"🏭", title:"Kläranlage & Flussbarriere", cost:140},
+  {id:"pfand",  icon:"♻️", title:"Pfand & Mehrweg",            cost:120},
+  {id:"netze",  icon:"⚓", title:"Netz-Rücknahme im Hafen",    cost:110},
+  {id:"einweg", icon:"🛍️", title:"Weniger Einwegplastik",      cost:180}
+];
+
+const FINAL_TIPS = [
+  {i:"🛍️", t:"Stoffbeutel, Mehrwegflasche und eigene Brotdose statt Einwegverpackung."},
+  {i:"♻️", t:"Müll immer richtig trennen und entsorgen, auch am Strand und unterwegs."},
+  {i:"👕", t:"Kleidung seltener und voll beladen waschen – das setzt weniger Fasern frei."},
+  {i:"🧴", t:"Kosmetik ohne Mikroplastik wählen."},
+  {i:"🧤", t:"Bei Aufräumaktionen an Strand, Fluss oder See mitmachen."},
+  {i:"🗣️", t:"Darüber reden: Erzähle anderen, was du hier gelernt hast."}
+];
+
+/* ================= PROGRESS (Sitzung) ================= */
+const progress = { unlocked:1, stars:[0,0,0,0,0], quiz:[0,0,0,0,0] };
+
+/* ================= RUN STATE ================= */
+let screen = "start";
+let LI = 0, L = LEVELS[0];
+let themeKey = "kueste";
+let G = null;
+let trashes=[], animals=[], jellies=[], plankton=[], particles=[], microDots=[];
+let popups=[], sparks=[], ripples=[], bubbles=[], seaweeds=[], ambient=[], sources=[];
+const pointer = {x:-999, y:-999, down:false, active:false, type:"mouse"};
+
+/* ================= RESIZE / BACKGROUND ================= */
+function layout(){
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = Math.round(W*DPR); canvas.height = Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  S = clamp(Math.min(W, H*1.25)/900, .62, 1.5);
+  const th = THEMES[themeKey];
+  surfaceY = th.sky ? H*0.2 : 0;
+  floorY = (L && L.sources && screen!=="start") ? H*0.8 : H*0.86;
+  if(themeKey === "quelle") floorY = H*0.8;
+  buildBackground();
+  initSeaweed();
+  initAmbient();
+}
+window.addEventListener("resize", ()=>{ layout(); });
+
+function seeded(seed){ let s = seed; return ()=>{ s = (s*16807) % 2147483647; return (s-1)/2147483646; }; }
+
+function buildBackground(){
+  const th = THEMES[themeKey];
+  bgCanvas = document.createElement("canvas");
+  bgCanvas.width = Math.round(W*DPR); bgCanvas.height = Math.round(H*DPR);
+  const b = bgCanvas.getContext("2d"); b.setTransform(DPR,0,0,DPR,0,0);
+  const sr = seeded(1234 + themeKey.length*77);
+
+  // Himmel (Level 5)
+  if(surfaceY > 0){
+    const sky = b.createLinearGradient(0,0,0,surfaceY);
+    sky.addColorStop(0,"#7cc4ee"); sky.addColorStop(1,"#d8f1ff");
+    b.fillStyle = sky; b.fillRect(0,0,W,surfaceY+2);
+    // Sonne
+    const sg = b.createRadialGradient(W*0.62, surfaceY*0.35, 2, W*0.62, surfaceY*0.35, surfaceY*0.6);
+    sg.addColorStop(0,"rgba(255,248,210,1)"); sg.addColorStop(.35,"rgba(255,236,170,.8)"); sg.addColorStop(1,"rgba(255,236,170,0)");
+    b.fillStyle = sg; b.fillRect(0,0,W,surfaceY);
+    // Wolken
+    b.fillStyle="rgba(255,255,255,.85)";
+    for(let i=0;i<4;i++){
+      const cx = W*(0.25 + i*0.17) + sr()*40, cy = surfaceY*(0.3+sr()*0.25), cr = 14*S + sr()*10*S;
+      for(let k=0;k<4;k++){ b.beginPath(); b.arc(cx + k*cr*0.8, cy + Math.sin(k)*4, cr*(0.8+0.3*Math.sin(k*2)), 0, TAU); b.fill(); }
+    }
+  }
+
+  // Wasser
+  const g = b.createLinearGradient(0, surfaceY, 0, H);
+  g.addColorStop(0, th.water[0]); g.addColorStop(.35, th.water[1]); g.addColorStop(.75, th.water[2]); g.addColorStop(1, th.water[3]);
+  b.fillStyle = g; b.fillRect(0, surfaceY, W, H-surfaceY);
+
+  // ferne Riff-/Felssilhouetten
+  b.fillStyle = th.far;
+  b.beginPath(); b.moveTo(0, floorY);
+  for(let x=0; x<=W+40; x+=40){
+    const y = floorY - 40*S - Math.sin(x*0.004+1.3)*36*S - Math.sin(x*0.011)*18*S - (sr()*14*S);
+    b.lineTo(x, y);
+  }
+  b.lineTo(W, floorY); b.closePath(); b.fill();
+  b.fillStyle = th.far.replace(/[\d.]+\)$/,"0.18)");
+  b.beginPath(); b.moveTo(0, floorY);
+  for(let x=0; x<=W+60; x+=60){
+    b.lineTo(x, floorY - 90*S - Math.sin(x*0.0025+0.4)*60*S - sr()*20*S);
+  }
+  b.lineTo(W, floorY); b.closePath(); b.fill();
+
+  // Meeresboden
+  const sg2 = b.createLinearGradient(0, floorY-10, 0, H);
+  sg2.addColorStop(0, th.sand[0]); sg2.addColorStop(1, th.sand[1]);
+  b.fillStyle = sg2;
+  b.beginPath(); b.moveTo(0, floorY);
+  for(let x=0; x<=W+30; x+=30) b.lineTo(x, floorY + Math.sin(x*0.02)*3*S + Math.sin(x*0.007)*5*S);
+  b.lineTo(W,H); b.lineTo(0,H); b.closePath(); b.fill();
+  // Sandrippel
+  b.strokeStyle = "rgba(120,90,45,.18)"; b.lineWidth = 1.5;
+  for(let row=0; row<6; row++){
+    const yy = floorY + 14*S + row*((H-floorY-14*S)/6);
+    b.beginPath();
+    for(let x=0; x<=W; x+=12){ const y = yy + Math.sin(x*0.05 + row)*2.5; x===0 ? b.moveTo(x,y) : b.lineTo(x,y); }
+    b.stroke();
+  }
+  // Kiesel & Muscheln
+  for(let i=0;i<60;i++){
+    const x = sr()*W, y = floorY + 8*S + sr()*(H-floorY-10*S);
+    b.fillStyle = sr()<.5 ? "rgba(100,80,50,.3)" : "rgba(255,250,235,.35)";
+    b.beginPath(); b.ellipse(x,y, (1.5+sr()*3)*S, (1+sr()*2)*S, sr()*3, 0, TAU); b.fill();
+  }
+  // Felsen
+  for(let i=0;i<th.rocks;i++){
+    const x = sr()*W, rw = (30+sr()*60)*S, rh = (18+sr()*34)*S;
+    const rg = b.createLinearGradient(x, floorY-rh, x, floorY+8);
+    rg.addColorStop(0,"#5c6670"); rg.addColorStop(1,"#2c333a");
+    b.fillStyle = rg;
+    b.beginPath(); b.moveTo(x-rw, floorY+6*S);
+    b.quadraticCurveTo(x-rw*0.9, floorY-rh*0.8, x-rw*0.2, floorY-rh);
+    b.quadraticCurveTo(x+rw*0.6, floorY-rh*1.05, x+rw, floorY+6*S);
+    b.closePath(); b.fill();
+    b.fillStyle="rgba(140,200,140,.18)"; b.beginPath(); b.ellipse(x-rw*0.1, floorY-rh*0.85, rw*0.5, rh*0.15, 0, 0, TAU); b.fill();
+  }
+  // Korallen
+  if(th.coral){
+    const cols = ["#ff7a8a","#ff9f5a","#ffd166","#c77dff","#ff5fa2"];
+    for(let i=0;i<9;i++){
+      const x = sr()*W, col = cols[Math.floor(sr()*cols.length)], hh = (26+sr()*40)*S;
+      b.strokeStyle = col; b.lineCap="round";
+      const branch = (x0,y0,len,ang,depth)=>{
+        if(depth<=0 || len<3) return;
+        const x1 = x0 + Math.cos(ang)*len, y1 = y0 + Math.sin(ang)*len;
+        b.lineWidth = Math.max(1.5, depth*2.2*S);
+        b.beginPath(); b.moveTo(x0,y0); b.lineTo(x1,y1); b.stroke();
+        branch(x1,y1,len*0.72, ang-0.45-sr()*0.2, depth-1);
+        branch(x1,y1,len*0.72, ang+0.45+sr()*0.2, depth-1);
+      };
+      branch(x, floorY+4*S, hh*0.45, -Math.PI/2 + (sr()-0.5)*0.3, 4);
+    }
+    // Hirnkoralle / Schwämme
+    for(let i=0;i<5;i++){
+      const x = sr()*W, r = (10+sr()*14)*S;
+      b.fillStyle = cols[Math.floor(sr()*cols.length)];
+      b.globalAlpha = .85; b.beginPath(); b.ellipse(x, floorY+2*S, r, r*0.7, 0, Math.PI, TAU); b.fill(); b.globalAlpha = 1;
+    }
+  }
+
+  // Vignette
+  vignetteCanvas = document.createElement("canvas");
+  vignetteCanvas.width = Math.round(W*DPR); vignetteCanvas.height = Math.round(H*DPR);
+  const v = vignetteCanvas.getContext("2d"); v.setTransform(DPR,0,0,DPR,0,0);
+  const vg = v.createRadialGradient(W/2, H*0.45, Math.min(W,H)*0.35, W/2, H*0.5, Math.max(W,H)*0.78);
+  vg.addColorStop(0,"rgba(0,0,0,0)"); vg.addColorStop(1, th.murk ? "rgba(0,20,15,.55)" : "rgba(0,10,25,.45)");
+  v.fillStyle = vg; v.fillRect(0,0,W,H);
+}
+
+function initSeaweed(){
+  seaweeds = [];
+  const count = Math.max(6, Math.floor(W/120));
+  const sr = seeded(99 + themeKey.length);
+  for(let i=0;i<count;i++){
+    seaweeds.push({
+      x:(i+0.5)*(W/count) + (sr()-0.5)*60,
+      h:(50 + sr()*90)*S*(themeKey==="grund"?0.7:1),
+      phase:sr()*TAU, blades:2 + Math.floor(sr()*3),
+      hue: themeKey==="trueb" ? 90 : 135 + sr()*25
+    });
+  }
+}
+function initAmbient(){
+  ambient = [];
+  for(let i=0;i<10;i++){
+    ambient.push({x:rand(0,W), y:surfaceY + rand(.15,.7)*(floorY-surfaceY), s:rand(3,6)*S, v:rand(.012,.03)*S, ph:rand(0,TAU)});
+  }
+  bubbles = [];
+  for(let i=0;i<26;i++) bubbles.push(newBubble(true));
+}
+function newBubble(anyY){
+  return {x:rand(0,W), y: anyY ? rand(surfaceY,floorY) : floorY + rand(0,16), r:rand(1.5,5)*S, v:rand(.02,.05)*S, ph:rand(0,TAU)};
+}
+function setTheme(key){ themeKey = key; layout(); }
+
+/* ================= SPAWNING ================= */
+function waterY(f){ return floorY - (floorY - surfaceY)*f; }
+
+function makeTrash(type, x, y, extra){
+  const cfg = TRASH[type];
+  const t = {
+    type, cfg, x, y,
+    r: cfg.r*S, vx:0, vy: cfg.vy*S*rand(.85,1.2),
+    rot: rand(0,TAU), rs: rand(-.0012,.0012), phase: rand(0,TAU),
+    state:"falling", landTime:0, stage:0, hp: cfg.hp || 1, maxHp: cfg.hp || 1,
+    victim:null, cooldown:0, gen: 0, drift:false, hitFlash:0,
+    color: pick(["#bfe9d8","#d3ecff","#ffd9a8","#f7c6d0"])
+  };
+  if(extra) Object.assign(t, extra);
+  trashes.push(t);
+  return t;
+}
+function spawnTrash(){
+  const type = pickWeighted(L.trash);
+  const cfg = TRASH[type];
+  if(type === "netz"){
+    // Geisternetz treibt quer durchs Wasser
+    const fromRight = Math.random() < .7;
+    const t = makeTrash(type, fromRight ? W + cfg.r*S : -cfg.r*S, waterY(rand(.25,.7)));
+    t.vx = (fromRight ? -1 : 1) * rand(.05,.075)*S;
+    t.vy = .004*S; t.drift = true;
+    return;
+  }
+  makeTrash(type, rand(cfg.r*S+10, W-cfg.r*S-10), surfaceY - cfg.r*S - 10);
+}
+function spawnAnimal(){
+  const type = pick(L.animals);
+  const cfg = ANIMALS[type];
+  const size = cfg.size*S;
+  animals.push({
+    type, cfg, size,
+    x: -size*1.6 - 10, y: waterY(rand(cfg.band[0], cfg.band[1])),
+    speed: rand(cfg.speed[0], cfg.speed[1])*S,
+    bob: rand(0,TAU), seed: rand(0,100),
+    pal: pick(FISH_PALETTES),
+    state:"swim", trapT:0, trapMax:1, trap:null,
+    rot:0, vySink:0, bulge:0, restT:0, fadeT:0, deathType:null,
+    load:0, freedT:0, happyT:0
+  });
+}
+function spawnJelly(){
+  jellies.push({x: rand(W*0.1, W*0.9), y: floorY + 20*S, s: rand(14,20)*S, ph: rand(0,TAU),
+    vx: rand(-.01,.01)*S, vy: -rand(.018,.03)*S, hue: rand(290,340)});
+}
+function spawnPlankton(anyX){
+  plankton.push({x: anyX ? rand(0,W) : -8, y: waterY(rand(.08,.92)), ph: rand(0,TAU), r: rand(2.4,4)*S, vx: rand(.008,.02)*S});
+}
+function spawnParticle(kind, x, y, vx, vy){
+  const cols = {faser:pick(["#6fb2ff","#ff7eb6","#b28cff","#ffffff"]), reifen:"#1b1d20", perle:pick(["#5ff2ff","#ff6bd6","#ffe066","#7dff9a"]), frag:"#f4f4f4"};
+  particles.push({kind, x, y, vx, vy, ph: rand(0,TAU), col: cols[kind], r: (kind==="perle"?2.4:kind==="reifen"?1.9:1.6)*S, ang: rand(0,TAU)});
+}
+
+/* ===== Level-5-Quellen ===== */
+function initSources(){
+  sources = [
+    {id:"fluss",  name:"Fluss",     x:0,  dir:1,  rate:1/1500, mult:1, types:{tuete:3, flasche:2, becher:2, folie:2}, acc:0, stopped:false},
+    {id:"strand", name:"Strand",    x:W,  dir:-1, rate:1/1900, mult:1, types:{flasche:3, becher:2, strohhalm:3, ringe:2, tuete:1}, acc:0, stopped:false},
+    {id:"boot",   name:"Fischerei", x:W*0.4, dir:1, rate:1/5200, mult:1, types:{netz:1}, acc:0, stopped:false, bx:W*0.4, bv:.04}
+  ];
+}
+function sourceById(id){ return sources.find(s=>s.id===id); }
+function updateSources(dt, p){
+  for(const s of sources){
+    if(s.id === "boot"){
+      s.bx += s.bv*S*dt;
+      if(s.bx > W*0.78){ s.bx = W*0.78; s.bv = -Math.abs(s.bv); }
+      if(s.bx < W*0.22){ s.bx = W*0.22; s.bv = Math.abs(s.bv); }
+    }
+    if(s.mult <= 0 || !Object.keys(s.types).length) continue;
+    s.acc += dt * s.rate * s.mult * (1 + p*0.9);
+    while(s.acc >= 1){
+      s.acc -= 1;
+      const type = pickWeighted(s.types);
+      if(s.id === "fluss"){
+        const t = makeTrash(type, rand(10,40)*S, surfaceY + rand(4,12)*S);
+        t.vx = rand(.09,.16)*S;
+      } else if(s.id === "strand"){
+        const t = makeTrash(type, W - rand(10,40)*S, surfaceY + rand(4,12)*S);
+        t.vx = -rand(.09,.16)*S;
+      } else {
+        const t = makeTrash(type, s.bx, surfaceY + 16*S);
+        t.vy = .022*S; t.vx = s.bv*0.4*S;
+        popups.push({x:s.bx, y:surfaceY+30*S, text:"Netz über Bord!", life:1.3, color:"#ffb3b3"});
+      }
+    }
+  }
+}
+function applyMeasure(id){
+  if(!G || G.measures.includes(id)) return;
+  const m = MEASURES.find(x=>x.id===id);
+  if(G.score < m.cost){ coach(`Dafür brauchst du ${m.cost} Budget. Sammle weiter Müll!`, 2200); return; }
+  G.score -= m.cost; G.measures.push(id);
+  if(id==="fluss"){ sourceById("fluss").mult *= 0.12; }
+  if(id==="pfand"){ const s=sourceById("strand"); delete s.types.flasche; delete s.types.becher; s.mult *= 0.55; }
+  if(id==="netze"){ sourceById("boot").mult = 0; }
+  if(id==="einweg"){
+    for(const s of sources){ delete s.types.tuete; delete s.types.strohhalm; delete s.types.folie; s.mult *= 0.75; }
+  }
+  const msg = {
+    fluss:"Kläranlage & Flussbarriere fangen den Müll ab, bevor er das Meer erreicht.",
+    pfand:"Pfandflaschen haben einen Wert – sie werden zurückgebracht statt liegen gelassen.",
+    netze:"Alte Netze werden im Hafen zurückgenommen und recycelt.",
+    einweg:"Ohne Tüten, Halme und Folien entsteht viel weniger Müll."
+  }[id];
+  coach("✅ " + msg, 3200);
+  sparkBurst(W/2, floorY, "#ffd36b", 30);
+  updateHUD(); renderMeasures();
+}
+
+/* ================= GAME FLOW ================= */
+function newRun(){
+  G = {
+    elapsed:0, deaths:0, micro:0, load:0, score:0, collected:0, rescued:0, filtered:0,
+    confusions:0, planktonHit:0, measures:[], trashT:900, animalT:400, jellyT:0,
+    shake:0, flashes:[], current:0, acc:{f:0,t:0,b:0}, ended:false, sink:1, combo:0, comboT:0,
+    lastPop:0, coachedTrap:false, coachedFloor:false, warned:{}
+  };
+  trashes=[]; animals=[]; jellies=[]; plankton=[]; particles=[]; microDots=[];
+  popups=[]; sparks=[]; ripples=[];
+  if(L.sources) initSources(); else sources = [];
+  if(L.plankton) for(let i=0;i<30;i++) spawnPlankton(true);
+  if(L.jelly) for(let i=0;i<3;i++){ spawnJelly(); jellies[i].y = waterY(rand(.3,.8)); }
+}
+function startLevel(i){
+  LI = i; L = LEVELS[i];
+  setTheme(L.theme);
+  newRun();
+  layout();
+  if(L.sources) initSources();
+  buildHUD(); updateHUD();
+  $("hud").classList.remove("hidden");
+  $("measures").classList.toggle("hidden", !L.sources);
+  if(L.sources) renderMeasures();
+  showScreen("play");
+  coach(L.coach, 6500);
+}
+function endLevel(win, reason){
+  if(G.ended) return;
+  G.ended = true;
+  pointer.down = false;
+  const stars = win ? calcStars() : 0;
+  if(win){
+    progress.stars[LI] = Math.max(progress.stars[LI], stars);
+    progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length, LI+2));
+  }
+  setTimeout(()=>{
+    $("hud").classList.add("hidden");
+    $("measures").classList.add("hidden");
+    hideCoach();
+    buildResult(win, reason, stars);
+    showScreen("result");
+  }, win ? 700 : 1300);
+}
+function calcStars(){
+  const env = L.maxLoad ? G.load/L.maxLoad : G.micro/L.maxMicro;
+  if(L.sources){
+    let s = 1;
+    if(G.measures.length >= 2) s++;
+    if(G.measures.length >= 3 && G.deaths <= 3) s++;
+    return Math.min(3, s);
+  }
+  let s = 1;
+  if(G.deaths <= Math.floor(L.maxDeaths*0.34)) s++;
+  if(env <= 0.4 && (!L.jelly || G.confusions <= 2)) s++;
+  return s;
+}
+
+/* ================= COLLISION & EVENTS ================= */
+function killAnimal(a, type){
+  if(a.state === "dying") return;
+  a.state = "dying"; a.deathType = type; a.deathPhase = "sinking";
+  a.rot = 0; a.vySink = .012*S; a.bulge = 0; a.restT = 0; a.fadeT = 0; a.deathT = 0;
+  G.deaths++;
+  G.shake = 9;
+  G.flashes.push({life:1, color: type==="verfaengt" ? "255,80,80" : "255,170,80"});
+  const msg = type==="verfaengt" ? "Verfangen! 💔" : type==="vergiftet" ? "Zu viel Mikroplastik! 💔" : "Verschluckt! 💔";
+  popups.push({x:a.x, y:a.y-a.size, text:msg, life:1.4, color:"#ff9a9a", big:true});
+  updateHUD();
+  if(G.deaths >= L.maxDeaths) endLevel(false, "deaths");
+}
+function trapAnimal(a, t){
+  a.state = "trapped"; a.trapT = L.trapTime || 3500; a.trapMax = a.trapT; a.trap = t;
+  t.state = "trapping"; t.victim = a;
+  popups.push({x:a.x, y:a.y-a.size, text:"Hilfe! Verfangen!", life:1.2, color:"#ffcf7a", big:true});
+  if(!G.coachedTrap){ G.coachedTrap = true; coach("Schnell! Tippe mehrmals auf das Netz, um das Tier zu befreien!", 3000); }
+}
+function collectTrash(t, px, py){
+  G.combo = (G.comboT > 0) ? G.combo + 1 : 1;
+  G.comboT = 1400;
+  const mult = Math.min(3, 1 + Math.floor((G.combo-1)/3)*0.5);
+  const pts = Math.round(t.cfg.pts * mult);
+  G.score += pts; G.collected++;
+  let text = "+" + pts;
+  if(mult > 1) text += "  Combo ×" + mult;
+  popups.push({x:t.x, y:t.y-10, text, life:1.1, color:"#8ff5d8"});
+  if(L.showYears && t.cfg.years){
+    popups.push({x:t.x, y:t.y+18*S, text:`${t.cfg.label}: ${t.cfg.years} im Meer verhindert`, life:1.8, color:"#ffe39a", small:true});
+  }
+  sparkBurst(t.x, t.y, "#bff8ec", 14);
+  if(t.victim){
+    const a = t.victim;
+    a.state = "freed"; a.freedT = 1800; a.trap = null;
+    G.rescued++; G.score += 15;
+    popups.push({x:a.x, y:a.y-a.size-10, text:"Gerettet! +15 💚", life:1.5, color:"#7dffb0", big:true});
+    sparkBurst(a.x, a.y, "#7dffb0", 22);
+  }
+  t.state = "gone";
+  updateHUD();
+}
+function hitTrash(t, px, py){
+  t.hp--; t.hitFlash = 1;
+  if(t.hp > 0){
+    popups.push({x:t.x, y:t.y-t.r, text: "Noch " + t.hp + "×", life:.8, color:"#ffffff"});
+    sparkBurst(px, py, "#ffffff", 6);
+    return;
+  }
+  collectTrash(t, px, py);
+}
+function landTrash(t){
+  t.state = "onFloor"; t.landTime = G.elapsed;
+  t.y = floorY - Math.max(4*S, t.r*0.35);
+  t.vx = 0;
+  if(!G.coachedFloor && L.fragment){ G.coachedFloor = true; }
+}
+function decayTrash(t){
+  t.state = "gone";
+  if(L.fragment && t.type !== "fragment"){
+    const n = 3;
+    for(let i=0;i<n;i++){
+      const f = makeTrash("fragment", clamp(t.x + rand(-24,24)*S, 10, W-10), floorY - rand(2,6)*S);
+      f.state = "onFloor"; f.landTime = G.elapsed; f.color = t.type==="netz" ? "#8f979e" : t.color;
+      f.decayLen = TRASH.fragment.decay*rand(.9,1.2);
+      f.microYield = Math.max(1, Math.ceil(t.cfg.micro/n));
+    }
+    popups.push({x:t.x, y:t.y-14*S, text:"zerbricht in Stücke …", life:1.1, color:"#ffd0a0", small:true});
+    return;
+  }
+  const n = t.microYield || t.cfg.micro;
+  for(let i=0;i<n;i++){
+    if(microDots.length < 500) microDots.push({x:t.x + rand(-16,16)*S, y: floorY + rand(-3,5)*S, r: rand(.8,2)*S, ph: rand(0,TAU)});
+  }
+  if(L.maxMicro){
+    G.micro += n;
+    popups.push({x:t.x, y:t.y-12*S, text:"+" + n + " Mikroplastik", life:1.2, color:"#ffb3b3", small:true});
+    if(G.micro >= L.maxMicro) endLevel(false, "micro");
+  }
+  if(L.filter){
+    // Mikroplastik wird aufgewirbelt und schwebt ins Wasser
+    for(let i=0;i<n+3;i++) spawnParticle("frag", t.x + rand(-14,14)*S, floorY - rand(4,20)*S, rand(-.01,.01)*S, -rand(.008,.02)*S);
+  }
+  updateHUD();
+}
+
+/* ================= UPDATE ================= */
+function update(dt){
+  G.elapsed += dt;
+  const p = clamp(G.elapsed / L.duration, 0, 1);
+  G.sink = 1 + p * L.sinkRamp;
+  G.current = L.current ? Math.sin(G.elapsed*0.00035)*0.045*S : 0;
+  if(G.comboT > 0) G.comboT -= dt;
+
+  // Spawns
+  if(!L.sources){
+    G.trashT -= dt;
+    if(G.trashT <= 0){ spawnTrash(); G.trashT = lerp(L.trashEvery[0], L.trashEvery[1], p) * rand(.75,1.25); }
+  } else updateSources(dt, p);
+  G.animalT -= dt;
+  if(G.animalT <= 0){ spawnAnimal(); G.animalT = lerp(L.animalEvery[0], L.animalEvery[1], p) * rand(.75,1.25); }
+  if(L.jelly){
+    G.jellyT -= dt;
+    if(G.jellyT <= 0 && jellies.length < 3 + Math.round(p*2)){ spawnJelly(); G.jellyT = 2600; }
+  }
+  if(L.plankton && plankton.length < 30 && Math.random() < dt*0.002) spawnPlankton(false);
+  if(L.microSources){
+    const k = 1 + p*1.6;
+    G.acc.f += dt*0.0022*k; G.acc.t += dt*0.0012*k; G.acc.b += dt*0.0009*k;
+    while(G.acc.f >= 1){ G.acc.f--; spawnParticle("faser", -6, waterY(rand(.1,.9)), rand(.03,.055)*S, rand(-.004,.004)*S); }
+    while(G.acc.t >= 1){ G.acc.t--; spawnParticle("reifen", rand(0,W*0.6), surfaceY + 8, rand(.0,.012)*S, rand(.018,.032)*S); }
+    while(G.acc.b >= 1){ G.acc.b--; spawnParticle("perle", rand(W*0.2,W), surfaceY + 8, rand(-.006,.006)*S, rand(.012,.024)*S); }
+  }
+
+  // Müll
+  for(let i=trashes.length-1;i>=0;i--){
+    const t = trashes[i];
+    if(t.hitFlash > 0) t.hitFlash -= dt*0.004;
+    if(t.cooldown > 0) t.cooldown -= dt;
+    if(t.state === "falling"){
+      t.phase += dt*0.0022;
+      const sway = Math.sin(t.phase) * t.cfg.sway * 0.022 * S * dt;
+      t.x += (t.vx + G.current) * dt + sway;
+      if(!t.drift) t.vx *= Math.pow(0.9982, dt);
+      t.y += t.vy * (t.drift ? 1 : G.sink) * dt;
+      t.rot += t.rs * dt * (t.type==="tuete"||t.type==="folie" ? .4 : 1);
+      if(t.drift){
+        if(t.x < -t.r*2.5 || t.x > W + t.r*2.5) t.state = "gone";
+      } else {
+        t.x = clamp(t.x, t.r, W - t.r);
+      }
+      if(t.y + t.r*0.45 >= floorY) landTrash(t);
+    } else if(t.state === "onFloor"){
+      const len = (t.decayLen || t.cfg.decay) * (L.decayScale || 1);
+      const age = G.elapsed - t.landTime;
+      t.stage = Math.min(3, Math.floor(age / (len/3)));
+      if(age >= len) decayTrash(t);
+    } else if(t.state === "trapping"){
+      const a = t.victim;
+      if(!a || a.state !== "trapped"){ t.state = "falling"; t.victim = null; t.cooldown = 1500; }
+      else { t.x = lerp(t.x, a.x, .3); t.y = lerp(t.y, a.y, .3); }
+    }
+    if(t.state === "gone") trashes.splice(i,1);
+  }
+
+  // Tiere
+  for(let i=animals.length-1;i>=0;i--){
+    const a = animals[i];
+    a.bob += 0.0016*dt;
+    if(a.happyT > 0) a.happyT -= dt;
+    if(a.state === "swim" || a.state === "freed"){
+      const sp = a.state === "freed" ? a.speed*2.4 : a.speed;
+      a.x += sp * dt;
+      if(a.state === "freed"){ a.freedT -= dt; if(a.freedT <= 0) a.state = "swim"; }
+      const ay = a.y + Math.sin(a.bob)*4*S;
+      if(a.state === "swim"){
+        for(let j=0;j<trashes.length;j++){
+          const t = trashes[j];
+          if(t.state !== "falling" || t.cooldown > 0) continue;
+          const rr = a.size*0.62 + t.r*0.55;
+          if(Math.abs(a.x - t.x) < rr && Math.abs(ay - t.y) < rr && dist(a.x, ay, t.x, t.y) < rr){
+            if(t.cfg.entangle){
+              if(L.rescue) trapAnimal(a, t);
+              else { killAnimal(a, "verfaengt"); t.state = "gone"; }
+            } else {
+              killAnimal(a, "isst"); t.state = "gone";
+            }
+            break;
+          }
+        }
+        // Schildkröten fressen echte Quallen
+        if(a.state === "swim" && a.type === "schildkroete" && jellies.length){
+          for(let j=jellies.length-1;j>=0;j--){
+            const jl = jellies[j];
+            if(dist(a.x+a.size*0.6, ay, jl.x, jl.y) < a.size*0.6 + jl.s*0.6){
+              jellies.splice(j,1); a.happyT = 1200;
+              popups.push({x:a.x, y:a.y-a.size, text:"Mjam – echte Qualle! 🪼", life:1.2, color:"#ffd6f5"});
+            }
+          }
+        }
+        // Mikroplastik aufnehmen (Level 4)
+        if(L.maxLoad && particles.length){
+          const rr = a.size*(a.type==="wal" ? .95 : .75);
+          let got = 0;
+          for(let j=particles.length-1;j>=0;j--){
+            const q = particles[j];
+            if(Math.abs(q.x-a.x) < rr && Math.abs(q.y-ay) < rr){ particles.splice(j,1); got++; }
+          }
+          if(got){
+            const add = got * (a.type==="wal" ? 1.2 : 1) * 0.5;
+            G.load += add; a.load += got;
+            if(G.elapsed - G.lastPop > 700){
+              G.lastPop = G.elapsed;
+              popups.push({x:a.x, y:a.y-a.size, text: a.type==="wal" ? "Wal filtert Mikroplastik mit!" : "Mikroplastik gefressen", life:1, color:"#d6b8ff", small:true});
+            }
+            if(a.load >= 22 && a.type !== "wal") killAnimal(a, "vergiftet");
+            updateHUD();
+            if(G.load >= L.maxLoad) endLevel(false, "load");
+          }
+        }
+      }
+      if(a.x - a.size*1.6 > W + 20) animals.splice(i,1);
+    } else if(a.state === "trapped"){
+      a.trapT -= dt;
+      a.x += a.speed*0.12*dt;
+      a.rot = Math.sin(G.elapsed*0.03)*0.18;
+      if(a.trapT <= 0){
+        const t = a.trap; a.trap = null;
+        if(t){ t.victim = null; t.state = "falling"; t.cooldown = 2200; if(t.drift) t.vx = -Math.abs(t.vx||.05*S); }
+        killAnimal(a, "verfaengt");
+      }
+    } else if(a.state === "dying"){
+      a.deathT += dt;
+      const floorTarget = floorY - a.size*0.35;
+      if(a.deathPhase === "sinking"){
+        if(a.deathType === "isst" || a.deathType === "vergiftet"){
+          a.rot = Math.min(Math.PI*0.9, a.rot + 0.0024*dt);
+          a.bulge = Math.min(1, a.bulge + 0.0013*dt);
+        } else {
+          const amp = Math.max(0, 3 - a.deathT*0.003);
+          a.x += Math.sin(a.deathT*0.02)*amp*(dt/16);
+          a.rot = Math.min(Math.PI*0.6, a.rot + 0.0014*dt);
+        }
+        a.vySink = Math.min(.22*S, a.vySink + .00004*S*dt);
+        a.y += a.vySink*dt;
+        if(a.y >= floorTarget){ a.y = floorTarget; a.deathPhase = "resting"; }
+      } else if(a.deathPhase === "resting"){
+        a.restT += dt; if(a.restT > 700) a.deathPhase = "fading";
+      } else {
+        a.fadeT += dt; if(a.fadeT > 800){ animals.splice(i,1); }
+      }
+    }
+  }
+
+  // Quallen
+  for(let i=jellies.length-1;i>=0;i--){
+    const j = jellies[i];
+    j.ph += dt*0.004;
+    const pulse = Math.max(0, Math.sin(j.ph));
+    j.y += (j.vy * (0.4 + pulse*1.4)) * dt;
+    j.x += j.vx*dt + Math.sin(j.ph*0.3)*0.1;
+    if(j.y < surfaceY + 40*S) j.vy = Math.abs(j.vy)*0.6;
+    if(j.y > floorY - 20*S) j.vy = -Math.abs(j.vy);
+    if(j.x < -40 || j.x > W+40) jellies.splice(i,1);
+  }
+  // Plankton
+  for(let i=plankton.length-1;i>=0;i--){
+    const q = plankton[i];
+    q.ph += dt*0.002;
+    q.x += q.vx*dt; q.y += Math.sin(q.ph)*0.08;
+    if(q.x > W + 10) plankton.splice(i,1);
+  }
+  // Mikroplastik-Partikel
+  for(let i=particles.length-1;i>=0;i--){
+    const q = particles[i];
+    q.ph += dt*0.002;
+    q.x += q.vx*dt + Math.sin(q.ph)*0.05;
+    q.y += q.vy*dt;
+    if(q.kind !== "faser") q.vy *= Math.pow(0.9993, dt);
+    if(q.y > floorY - 6*S){ q.y = floorY - 6*S; q.vy = -Math.abs(q.vy)*0.3; }
+    if(q.y < surfaceY + 6*S){ q.y = surfaceY + 6*S; q.vy = Math.abs(q.vy)*0.5 + .004*S; }
+    if(q.x > W + 12 || q.x < -14) particles.splice(i,1);
+  }
+  if(particles.length > 420) particles.splice(0, particles.length - 420);
+
+  // Filter (Level 4)
+  if(L.filter && pointer.down) applyFilter(dt);
+
+  // Warnungen
+  checkWarnings();
+
+  // Sieg
+  if(G.elapsed >= L.duration && !G.ended) endLevel(true, "win");
+  updateTimeBar();
+}
+
+function applyFilter(dt){
+  const R = 52*S;
+  let caught = 0;
+  for(let i=particles.length-1;i>=0;i--){
+    const q = particles[i];
+    if(dist(q.x,q.y,pointer.x,pointer.y) < R){ particles.splice(i,1); caught++; }
+  }
+  if(caught){
+    G.filtered += caught; G.score += caught;
+    if(Math.random() < .5) sparkBurst(pointer.x, pointer.y, "#c9fff6", 3);
+    updateHUD();
+  }
+  for(let i=plankton.length-1;i>=0;i--){
+    const q = plankton[i];
+    if(dist(q.x,q.y,pointer.x,pointer.y) < R){
+      plankton.splice(i,1); G.planktonHit++; G.score = Math.max(0, G.score - 3);
+      if(G.elapsed - G.lastPop > 600){
+        G.lastPop = G.elapsed;
+        popups.push({x:pointer.x, y:pointer.y - R, text:"Plankton mitgefiltert! −3", life:1, color:"#9dff8a", small:true});
+      }
+      updateHUD();
+    }
+  }
+}
+
+function checkWarnings(){
+  const warnDeaths = G.deaths >= L.maxDeaths - 2;
+  const env = L.maxLoad ? G.load/L.maxLoad : (L.maxMicro ? G.micro/L.maxMicro : 0);
+  const el1 = $("chip_deaths"), el2 = $("chip_env");
+  if(el1) el1.classList.toggle("warn", warnDeaths);
+  if(el2) el2.classList.toggle("warn", env >= 0.75);
+}
+
+function updateFx(dt){
+  for(let i=popups.length-1;i>=0;i--){
+    const pp = popups[i]; pp.life -= dt*0.0012; pp.y -= dt*0.022;
+    if(pp.life <= 0) popups.splice(i,1);
+  }
+  for(let i=sparks.length-1;i>=0;i--){
+    const s = sparks[i]; s.life -= dt*0.0022; s.x += s.vx*dt; s.y += s.vy*dt; s.vy += 0.0002*dt;
+    if(s.life <= 0) sparks.splice(i,1);
+  }
+  for(let i=ripples.length-1;i>=0;i--){
+    const r = ripples[i]; r.life -= dt*0.003; r.r += dt*0.12;
+    if(r.life <= 0) ripples.splice(i,1);
+  }
+  if(G){
+    for(let i=G.flashes.length-1;i>=0;i--){ G.flashes[i].life -= dt*0.003; if(G.flashes[i].life <= 0) G.flashes.splice(i,1); }
+    if(G.shake > 0) G.shake = Math.max(0, G.shake - dt*0.03);
+  }
+  for(const b of bubbles){
+    b.y -= b.v*dt; b.x += Math.sin(b.ph + b.y*0.02)*0.15;
+    if(b.y < surfaceY + 2){ Object.assign(b, newBubble(false)); }
+  }
+  for(const f of ambient){
+    f.x += f.v*dt; f.ph += dt*0.003;
+    if(f.x > W + 20){ f.x = -20; f.y = surfaceY + rand(.15,.7)*(floorY-surfaceY); }
+  }
+}
+function sparkBurst(x, y, color, n){
+  for(let i=0;i<n;i++){
+    const a = rand(0,TAU), v = rand(.05,.22)*S;
+    sparks.push({x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v - .05*S, life:1, color, r:rand(1.5,3.5)*S});
+  }
+}
+
+/* ================= DRAW: SCENE ================= */
+function drawScene(now){
+  ctx.drawImage(bgCanvas, 0, 0, W, H);
+  const th = THEMES[themeKey];
+
+  // Lichtstrahlen
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  for(let i=0;i<6;i++){
+    const rx = (i/6)*W + Math.sin(now*0.00018 + i*1.7)*50*S;
+    const grd = ctx.createLinearGradient(0, surfaceY, 0, floorY);
+    grd.addColorStop(0, `rgba(255,255,240,${th.murk ? .05 : .09})`); grd.addColorStop(1,"rgba(255,255,240,0)");
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.moveTo(rx, surfaceY); ctx.lineTo(rx + 70*S, surfaceY);
+    ctx.lineTo(rx - 40*S, floorY); ctx.lineTo(rx - 150*S, floorY);
+    ctx.closePath(); ctx.fill();
+  }
+  // Kaustiken nahe der Oberfläche
+  ctx.strokeStyle = "rgba(255,255,255,.07)"; ctx.lineWidth = 2;
+  for(let k=0;k<5;k++){
+    ctx.beginPath();
+    const yy = surfaceY + 14*S + k*16*S;
+    for(let x=0;x<=W;x+=18){
+      const y = yy + Math.sin(x*0.018 + now*0.0012 + k)*5*S + Math.sin(x*0.041 - now*0.0009)*3*S;
+      x===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Wasseroberfläche (Level 5)
+  if(surfaceY > 0) drawSurfaceAndSources(now);
+
+  // Ferne Fischschwärme
+  ctx.fillStyle = th.murk ? "rgba(10,40,40,.35)" : "rgba(8,40,70,.3)";
+  for(const f of ambient){
+    const y = f.y + Math.sin(f.ph)*4;
+    ctx.beginPath(); ctx.ellipse(f.x, y, f.s, f.s*0.42, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(f.x - f.s*0.8, y); ctx.lineTo(f.x - f.s*1.6, y - f.s*0.5); ctx.lineTo(f.x - f.s*1.6, y + f.s*0.5); ctx.closePath(); ctx.fill();
+  }
+
+  // Trübung (Level 4)
+  if(th.murk){
+    ctx.fillStyle = "rgba(160,190,150,.05)";
+    for(let i=0;i<7;i++){
+      const x = ((i*311 + now*0.012) % (W+400)) - 200, y = surfaceY + (i*97 % (floorY-surfaceY));
+      ctx.beginPath(); ctx.ellipse(x, y, 180*S, 70*S, 0, 0, TAU); ctx.fill();
+    }
+  }
+
+  // Seetang
+  for(const s of seaweeds){
+    for(let b=0;b<s.blades;b++){
+      const sway = Math.sin(now*0.0013 + s.phase + b*0.8) * 16*S;
+      const bx = s.x + b*9*S - s.blades*4*S, h = s.h*(1 - b*0.12);
+      ctx.strokeStyle = `hsl(${s.hue + b*6},50%,${24 + b*5}%)`;
+      ctx.lineWidth = (6 - b)*S; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(bx, floorY + 4);
+      ctx.quadraticCurveTo(bx + sway, floorY - h*0.55, bx + sway*1.5, floorY - h);
+      ctx.stroke();
+      // Blätter
+      ctx.fillStyle = `hsl(${s.hue + b*6},48%,${30 + b*5}%)`;
+      for(let k=1;k<4;k++){
+        const tt = k/4, lx = bx + sway*1.5*tt*tt, ly = floorY - h*tt;
+        ctx.beginPath(); ctx.ellipse(lx + (k%2?6:-6)*S, ly, 7*S, 2.6*S, (k%2?0.6:-0.6) + sway*0.01, 0, TAU); ctx.fill();
+      }
+    }
+  }
+
+  // Blasen
+  ctx.fillStyle = "rgba(255,255,255,.28)"; ctx.strokeStyle = "rgba(255,255,255,.45)"; ctx.lineWidth = 1;
+  for(const b of bubbles){
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill(); ctx.stroke();
+  }
+
+  // Mikroplastik am Boden
+  for(const m of microDots){
+    ctx.fillStyle = "rgba(255,255,255,.85)";
+    ctx.beginPath(); ctx.arc(m.x, m.y + Math.sin(now*0.002 + m.ph)*0.8, m.r, 0, TAU); ctx.fill();
+  }
+}
+
+function drawSurfaceAndSources(now){
+  const sY = surfaceY;
+  // Wellenlinie
+  ctx.fillStyle = "rgba(255,255,255,.5)";
+  ctx.beginPath(); ctx.moveTo(0, sY);
+  for(let x=0;x<=W;x+=14) ctx.lineTo(x, sY + Math.sin(x*0.03 + now*0.003)*3*S);
+  ctx.lineTo(W, sY+6*S); ctx.lineTo(0, sY+6*S); ctx.closePath(); ctx.fill();
+
+  // Linkes Ufer: Stadt + Fluss
+  const fl = sourceById("fluss");
+  ctx.fillStyle = "#6c8a4e";
+  ctx.beginPath(); ctx.moveTo(0, sY - 34*S); ctx.lineTo(W*0.14, sY - 22*S); ctx.lineTo(W*0.16, sY + 2); ctx.lineTo(0, sY+2); ctx.closePath(); ctx.fill();
+  // Häuser
+  for(let i=0;i<5;i++){
+    const hx = 6*S + i*W*0.024, hh = (18 + (i*7)%16)*S, hw = W*0.018;
+    ctx.fillStyle = ["#d9d3c7","#c9b8a2","#e5ded1","#b7a58e","#d4c6b0"][i];
+    ctx.fillRect(hx, sY - 34*S - hh + i*2*S, hw, hh);
+    ctx.fillStyle = "#a2523e"; ctx.beginPath(); ctx.moveTo(hx-2, sY-34*S-hh+i*2*S); ctx.lineTo(hx+hw/2, sY-44*S-hh+i*2*S); ctx.lineTo(hx+hw+2, sY-34*S-hh+i*2*S); ctx.closePath(); ctx.fill();
+  }
+  // Fluss
+  ctx.fillStyle = "#5aa9c9";
+  ctx.beginPath(); ctx.moveTo(W*0.04, sY - 30*S); ctx.quadraticCurveTo(W*0.08, sY - 12*S, W*0.06, sY+2); ctx.lineTo(W*0.11, sY+2); ctx.quadraticCurveTo(W*0.11, sY-14*S, W*0.07, sY-31*S); ctx.closePath(); ctx.fill();
+  if(fl && G && G.measures.includes("fluss")){
+    ctx.fillStyle = "#ffd36b"; ctx.fillRect(W*0.055, sY - 6*S, W*0.06, 4*S);
+    ctx.fillStyle = "#e9eef2"; ctx.fillRect(W*0.12, sY - 30*S, 28*S, 16*S);
+    ctx.fillStyle = "#3fd6c0"; ctx.font = `700 ${12*S}px Segoe UI, sans-serif`; ctx.textAlign="left"; ctx.fillText("✓", W*0.12 + 9*S, sY - 18*S);
+  }
+  labelTag(W*0.15, sY - 16*S, "🏞️ Fluss", fl && G && G.measures.includes("fluss"));
+
+  // Rechtes Ufer: Strand
+  ctx.fillStyle = "#f1d9a0";
+  ctx.beginPath(); ctx.moveTo(W, sY - 30*S); ctx.lineTo(W*0.84, sY - 8*S); ctx.lineTo(W*0.8, sY + 2); ctx.lineTo(W, sY + 2); ctx.closePath(); ctx.fill();
+  // Sonnenschirme
+  for(let i=0;i<3;i++){
+    const ux = W*(0.87 + i*0.045), uy = sY - 18*S - i*4*S;
+    ctx.strokeStyle = "#7a5a3a"; ctx.lineWidth = 2*S; ctx.beginPath(); ctx.moveTo(ux, uy); ctx.lineTo(ux, uy - 22*S); ctx.stroke();
+    ctx.fillStyle = ["#ff6b6b","#3fb6ff","#ffd36b"][i];
+    ctx.beginPath(); ctx.arc(ux, uy - 22*S, 14*S, Math.PI, TAU); ctx.fill();
+  }
+  const st = sourceById("strand");
+  labelTag(W*0.86, sY - 16*S, "🏖️ Strand", G && G.measures.includes("pfand"));
+
+  // Fischerboot
+  const bt = sourceById("boot");
+  if(bt){
+    const bx = bt.bx, by = sY - 4*S + Math.sin(now*0.003)*2*S, dir = bt.bv >= 0 ? 1 : -1;
+    ctx.save(); ctx.translate(bx, by); ctx.scale(dir, 1);
+    ctx.fillStyle = "#c0392b";
+    ctx.beginPath(); ctx.moveTo(-40*S, -10*S); ctx.lineTo(40*S, -10*S); ctx.lineTo(28*S, 8*S); ctx.lineTo(-32*S, 8*S); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#f4f1ea"; ctx.fillRect(-18*S, -28*S, 24*S, 18*S);
+    ctx.fillStyle = "#2c3e50"; ctx.fillRect(-12*S, -24*S, 6*S, 6*S); ctx.fillRect(-2*S, -24*S, 6*S, 6*S);
+    ctx.strokeStyle = "#3a3a3a"; ctx.lineWidth = 2*S; ctx.beginPath(); ctx.moveTo(20*S, -10*S); ctx.lineTo(34*S, -38*S); ctx.lineTo(44*S, 4*S); ctx.stroke();
+    ctx.restore();
+    labelTag(bx, sY - 60*S, "⚓ Fischerei", G && G.measures.includes("netze"));
+  }
+}
+function labelTag(x, y, text, done){
+  ctx.font = `700 ${13*S}px Segoe UI, sans-serif`;
+  const tw = ctx.measureText(text + (done ? "  ✓" : "")).width + 16*S;
+  ctx.fillStyle = done ? "rgba(20,110,90,.9)" : "rgba(3,28,44,.8)";
+  roundRect(x - tw/2, y - 12*S, tw, 24*S, 12*S); ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(text + (done ? "  ✓" : ""), x, y);
+  ctx.textBaseline = "alphabetic";
+}
+function roundRect(x,y,w,h,r){
+  ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+
+/* ================= DRAW: PRIMITIVES ================= */
+function ell(x,y,rx,ry,rot){ ctx.beginPath(); ctx.ellipse(x,y,Math.max(.1,rx),Math.max(.1,ry),rot||0,0,TAU); ctx.fill(); }
+function eye(x,y,r){
+  ctx.fillStyle = "#fff"; ell(x,y,r,r);
+  ctx.fillStyle = "#0b1a24"; ell(x + r*.2, y, r*.6, r*.6);
+  ctx.fillStyle = "rgba(255,255,255,.95)"; ell(x + r*.38, y - r*.3, r*.22, r*.22);
+}
+function deadEye(x,y,r){
+  ctx.strokeStyle = "#0b1a24"; ctx.lineWidth = Math.max(1.2, r*0.35);
+  ctx.beginPath(); ctx.moveTo(x-r*.7,y-r*.7); ctx.lineTo(x+r*.7,y+r*.7); ctx.moveTo(x+r*.7,y-r*.7); ctx.lineTo(x-r*.7,y+r*.7); ctx.stroke();
+}
+
+/* ================= DRAW: ANIMALS ================= */
+function drawFish(a, s, t, dead){
+  const wig = dead ? 0 : Math.sin(t*0.016 + a.seed)*0.35;
+  const pal = a.pal;
+  ctx.save(); ctx.translate(-s*0.78, 0); ctx.rotate(wig);
+  ctx.fillStyle = pal.fin;
+  ctx.beginPath(); ctx.moveTo(s*0.12,0); ctx.lineTo(-s*0.55,-s*0.5); ctx.quadraticCurveTo(-s*0.32,0,-s*0.55,s*0.5); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = pal.fin;
+  ctx.beginPath(); ctx.moveTo(-s*0.35,-s*0.38); ctx.quadraticCurveTo(-s*0.05,-s*0.9, s*0.32,-s*0.4); ctx.closePath(); ctx.fill();
+  const g = ctx.createLinearGradient(0,-s*.55,0,s*.55);
+  g.addColorStop(0,pal.top); g.addColorStop(1,pal.belly);
+  ctx.fillStyle = g; ell(0,0,s*0.95,s*0.54);
+  ctx.fillStyle = "rgba(255,255,255,.6)"; ell(-s*0.12,0,s*0.1,s*0.48);
+  ctx.fillStyle = pal.fin; ell(s*0.12, s*0.18, s*0.22, s*0.09, 0.6 + wig*0.6);
+  dead ? deadEye(s*0.55,-s*0.12,s*0.12) : eye(s*0.55,-s*0.12,s*0.14);
+  ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(s*0.84, s*0.08, s*0.08, 0.2, 1.6); ctx.stroke();
+}
+function drawTurtle(a, s, t, dead){
+  const fl = dead ? 0.3 : Math.sin(t*0.006 + a.seed)*0.55;
+  ctx.fillStyle = "#4f8f5a";
+  ctx.save(); ctx.translate(s*0.35,-s*0.45); ctx.rotate(-0.6 - fl); ell(s*0.25,0,s*0.42,s*0.13); ctx.restore();
+  ctx.save(); ctx.translate(s*0.35, s*0.45); ctx.rotate(0.6 + fl); ell(s*0.25,0,s*0.42,s*0.13); ctx.restore();
+  ctx.save(); ctx.translate(-s*0.6,-s*0.35); ctx.rotate(-2.4 + fl*0.4); ell(s*0.12,0,s*0.2,s*0.09); ctx.restore();
+  ctx.save(); ctx.translate(-s*0.6, s*0.35); ctx.rotate(2.4 - fl*0.4); ell(s*0.12,0,s*0.2,s*0.09); ctx.restore();
+  ctx.fillStyle = "#6aa86f"; ell(s*0.98, 0, s*0.28, s*0.2);
+  dead ? deadEye(s*1.08,-s*0.06,s*0.06) : eye(s*1.08,-s*0.06,s*0.07);
+  const g = ctx.createRadialGradient(-s*0.1,-s*0.2,s*0.1, 0,0,s*0.9);
+  g.addColorStop(0,"#9b7a3e"); g.addColorStop(1,"#4b3516");
+  ctx.fillStyle = g; ell(0,0,s*0.86,s*0.62);
+  ctx.strokeStyle = "rgba(255,230,170,.35)"; ctx.lineWidth = Math.max(1, s*0.05);
+  const hex = (cx,cy,r)=>{ ctx.beginPath(); for(let k=0;k<6;k++){ const an = k*Math.PI/3; const x=cx+Math.cos(an)*r, y=cy+Math.sin(an)*r*0.8; k?ctx.lineTo(x,y):ctx.moveTo(x,y);} ctx.closePath(); ctx.stroke(); };
+  hex(0,0,s*0.25); hex(-s*0.45,0,s*0.2); hex(s*0.45,0,s*0.2); hex(-s*0.2,-s*0.38,s*0.15); hex(s*0.2,-s*0.38,s*0.15); hex(-s*0.2,s*0.38,s*0.15); hex(s*0.2,s*0.38,s*0.15);
+}
+function drawDolphin(a, s, t, dead){
+  const k = dead ? 0 : Math.sin(t*0.012 + a.seed);
+  ctx.save(); ctx.translate(-s*1.0, 0); ctx.rotate(k*0.3);
+  ctx.fillStyle = "#56809a";
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.quadraticCurveTo(-s*0.2,-s*0.1,-s*0.42,-s*0.36); ctx.quadraticCurveTo(-s*0.3,-s*0.02,-s*0.42,s*0.36); ctx.quadraticCurveTo(-s*0.2,s*0.1,0,0); ctx.fill();
+  ctx.restore();
+  const g = ctx.createLinearGradient(0,-s*0.4,0,s*0.35);
+  g.addColorStop(0,"#4e7891"); g.addColorStop(.55,"#7fa3b8"); g.addColorStop(1,"#dfe9ee");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(s*1.28, s*0.04);
+  ctx.quadraticCurveTo(s*1.0,-s*0.08, s*0.78,-s*0.2);
+  ctx.bezierCurveTo(s*0.3,-s*0.46, -s*0.5,-s*0.34, -s*1.02,-s*0.05);
+  ctx.lineTo(-s*1.02, s*0.06);
+  ctx.bezierCurveTo(-s*0.5, s*0.3, s*0.4, s*0.36, s*0.82, s*0.13);
+  ctx.quadraticCurveTo(s*1.05, s*0.1, s*1.28, s*0.04);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#4e7891";
+  ctx.beginPath(); ctx.moveTo(s*0.15,-s*0.38); ctx.quadraticCurveTo(-s*0.02,-s*0.62,-s*0.3,-s*0.8); ctx.quadraticCurveTo(-s*0.18,-s*0.48,-s*0.28,-s*0.33); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#5d879f";
+  ctx.save(); ctx.translate(s*0.35, s*0.2); ctx.rotate(0.7 + k*0.15); ell(0,s*0.1,s*0.08,s*0.2); ctx.restore();
+  dead ? deadEye(s*0.74,-s*0.06,s*0.06) : eye(s*0.74,-s*0.06,s*0.065);
+  ctx.strokeStyle = "rgba(30,50,60,.5)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(s*1.25, s*0.05); ctx.quadraticCurveTo(s*1.0, s*0.12, s*0.86, s*0.06); ctx.stroke();
+}
+function drawWhale(a, s, t, dead){
+  const k = dead ? 0 : Math.sin(t*0.006 + a.seed);
+  ctx.save(); ctx.translate(-s*1.08, 0); ctx.rotate(k*0.2);
+  ctx.fillStyle = "#2f4d68";
+  ctx.beginPath(); ctx.moveTo(s*0.05,0); ctx.quadraticCurveTo(-s*0.18,-s*0.08,-s*0.38,-s*0.34); ctx.quadraticCurveTo(-s*0.25,0,-s*0.38,s*0.34); ctx.quadraticCurveTo(-s*0.18,s*0.08,s*0.05,0); ctx.fill();
+  ctx.restore();
+  const g = ctx.createLinearGradient(0,-s*0.5,0,s*0.45);
+  g.addColorStop(0,"#2b4864"); g.addColorStop(.6,"#45698a"); g.addColorStop(1,"#9fb7c9");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(s*1.15, s*0.02);
+  ctx.bezierCurveTo(s*1.12,-s*0.42, -s*0.2,-s*0.46, -s*1.1,-s*0.07);
+  ctx.lineTo(-s*1.1, s*0.08);
+  ctx.bezierCurveTo(-s*0.2, s*0.48, s*1.1, s*0.5, s*1.15, s*0.02);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "rgba(220,235,245,.35)"; ctx.lineWidth = Math.max(1, s*0.02);
+  for(let i=0;i<5;i++){ ctx.beginPath(); ctx.moveTo(s*1.0, s*(0.12+i*0.05)); ctx.quadraticCurveTo(s*0.5, s*(0.22+i*0.05), s*0.05, s*(0.16+i*0.04)); ctx.stroke(); }
+  ctx.fillStyle = "#34536f";
+  ctx.save(); ctx.translate(s*0.35, s*0.25); ctx.rotate(0.6 + k*0.1); ell(0, s*0.15, s*0.08, s*0.28); ctx.restore();
+  dead ? deadEye(s*0.72, s*0.08, s*0.04) : eye(s*0.72, s*0.08, s*0.045);
+}
+function drawShark(a, s, t, dead){
+  const k = dead ? 0 : Math.sin(t*0.011 + a.seed);
+  ctx.save(); ctx.translate(-s*0.98, 0); ctx.rotate(k*0.3);
+  ctx.fillStyle = "#5f6f7b";
+  ctx.beginPath(); ctx.moveTo(s*0.05,0); ctx.lineTo(-s*0.38,-s*0.55); ctx.quadraticCurveTo(-s*0.18,-s*0.05,-s*0.28,s*0.3); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  const g = ctx.createLinearGradient(0,-s*0.35,0,s*0.3);
+  g.addColorStop(0,"#5f6f7b"); g.addColorStop(.55,"#8796a2"); g.addColorStop(1,"#eef2f4");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(s*1.18, s*0.04);
+  ctx.quadraticCurveTo(s*0.92,-s*0.3, s*0.2,-s*0.32);
+  ctx.quadraticCurveTo(-s*0.6,-s*0.28,-s*1.0,-s*0.04);
+  ctx.lineTo(-s*1.0, s*0.06);
+  ctx.quadraticCurveTo(-s*0.4, s*0.3, s*0.5, s*0.28);
+  ctx.quadraticCurveTo(s*1.0, s*0.22, s*1.18, s*0.04);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#56656f";
+  ctx.beginPath(); ctx.moveTo(s*0.12,-s*0.3); ctx.lineTo(-s*0.12,-s*0.78); ctx.lineTo(-s*0.3,-s*0.28); ctx.closePath(); ctx.fill();
+  ctx.save(); ctx.translate(s*0.3, s*0.2); ctx.rotate(0.9 + k*0.1); ell(0, s*0.15, s*0.07, s*0.25); ctx.restore();
+  ctx.strokeStyle = "rgba(40,50,60,.45)"; ctx.lineWidth = Math.max(1, s*0.025);
+  for(let i=0;i<3;i++){ ctx.beginPath(); ctx.arc(s*(0.58 - i*0.07), 0, s*0.12, -0.8, 0.8); ctx.stroke(); }
+  dead ? deadEye(s*0.88,-s*0.06,s*0.05) : eye(s*0.88,-s*0.06,s*0.055);
+}
+function drawSeal(a, s, t, dead){
+  const k = dead ? 0 : Math.sin(t*0.01 + a.seed);
+  ctx.fillStyle = "#6f6a66";
+  ctx.save(); ctx.translate(-s*0.92, 0); ctx.rotate(k*0.4);
+  ell(-s*0.18,-s*0.14,s*0.25,s*0.1,-0.5); ell(-s*0.18,s*0.14,s*0.25,s*0.1,0.5);
+  ctx.restore();
+  const g = ctx.createLinearGradient(0,-s*0.5,0,s*0.5);
+  g.addColorStop(0,"#7d7873"); g.addColorStop(1,"#cfc6bb");
+  ctx.fillStyle = g; ell(0,0,s*0.98,s*0.46);
+  ctx.fillStyle = "rgba(60,55,50,.35)";
+  for(let i=0;i<7;i++) ell(-s*0.6 + i*s*0.2, -s*0.15 + ((i*37)%5)*s*0.04, s*0.05, s*0.035);
+  ctx.fillStyle = "#857f79"; ell(s*0.9,-s*0.04,s*0.34,s*0.3);
+  ctx.fillStyle = "#a69d93"; ell(s*1.15, s*0.04, s*0.14, s*0.11);
+  ctx.fillStyle = "#2a2522"; ell(s*1.26, -s*0.0, s*0.04, s*0.03);
+  ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 0.8;
+  for(let i=-1;i<=1;i++){ ctx.beginPath(); ctx.moveTo(s*1.18, s*0.06); ctx.lineTo(s*1.42, s*(0.04 + i*0.08)); ctx.stroke(); }
+  ctx.fillStyle = "#6f6a66";
+  ctx.save(); ctx.translate(s*0.3, s*0.3); ctx.rotate(0.6 + k*0.2); ell(0, s*0.12, s*0.08, s*0.2); ctx.restore();
+  dead ? deadEye(s*0.98,-s*0.12,s*0.07) : eye(s*0.98,-s*0.12,s*0.09);
+}
+function drawAnimal(a, now){
+  const s = a.size;
+  const dead = a.state === "dying";
+  const by = (a.state === "dying" && a.deathPhase !== "sinking") ? a.y : a.y + Math.sin(a.bob)*4*S;
+  let alpha = 1;
+  if(dead && a.deathPhase === "fading") alpha = clamp(1 - a.fadeT/800, 0, 1);
+  ctx.save();
+  ctx.translate(a.x, by);
+  ctx.rotate(a.rot || 0);
+  ctx.globalAlpha = alpha;
+  const img = loadedImages[a.type];
+  if(img){ ctx.drawImage(img, -s*1.3, -s*1.3, s*2.6, s*2.6); }
+  else {
+    const fn = {fisch:drawFish, schildkroete:drawTurtle, delfin:drawDolphin, wal:drawWhale, hai:drawShark, seehund:drawSeal}[a.type];
+    fn(a, s, now, dead);
+  }
+  // Mikroplastik-Belastung (Level 4)
+  if(a.load > 0 && !dead){
+    ctx.fillStyle = `rgba(150,110,220,${Math.min(.45, a.load*0.02)})`;
+    ell(0,0,s*0.9,s*0.45);
+  }
+  // Verschlucken: Magenblockade
+  if((a.deathType === "isst" || a.deathType === "vergiftet") && a.bulge > 0){
+    ctx.fillStyle = "rgba(60,50,40,.5)"; ell(s*0.05, s*0.08, s*0.42*a.bulge, s*0.3*a.bulge);
+    ctx.fillStyle = "rgba(230,235,240,.85)"; ell(s*0.12, s*0.06, s*0.18*a.bulge, s*0.12*a.bulge, 0.4);
+  }
+  // Verfangen: Netzlinien
+  if(a.state === "trapped" || (dead && a.deathType === "verfaengt")){
+    ctx.strokeStyle = "rgba(170,175,182,.95)"; ctx.lineWidth = Math.max(1.2, 1.7*S);
+    for(let i=-1;i<=1;i++){
+      ctx.beginPath(); ctx.moveTo(-s*0.95, -s*0.55 + i*s*0.45);
+      ctx.quadraticCurveTo(0, i*s*0.15, s*0.95, -s*0.3 + i*s*0.5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-s*0.55 + i*s*0.5, -s*0.7); ctx.lineTo(-s*0.3 + i*s*0.5, s*0.7); ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  // Zeitring bei verfangenem Tier
+  if(a.state === "trapped"){
+    const f = clamp(a.trapT / a.trapMax, 0, 1);
+    const rr = s*1.35 + 6*S;
+    ctx.save();
+    ctx.lineWidth = 5*S; ctx.strokeStyle = "rgba(0,0,0,.35)";
+    ctx.beginPath(); ctx.arc(a.x, by, rr, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = f > .5 ? "#ffd36b" : "#ff5a5a";
+    ctx.beginPath(); ctx.arc(a.x, by, rr, -Math.PI/2, -Math.PI/2 + TAU*f); ctx.stroke();
+    ctx.restore();
+  }
+  // Blasen beim Absinken
+  if(dead && a.deathPhase === "sinking"){
+    ctx.fillStyle = "rgba(255,255,255,.55)";
+    for(let i=0;i<3;i++){
+      const bx = a.x + Math.sin(a.deathT*0.01 + i)*6*S;
+      const byy = by - s*0.7 - i*10*S - (a.deathT*0.02)%(20*S);
+      ctx.beginPath(); ctx.arc(bx, byy, (2 + i*0.6)*S, 0, TAU); ctx.fill();
+    }
+  }
+  // Freude
+  if(a.happyT > 0 || a.state === "freed"){
+    ctx.font = `${16*S}px Segoe UI Emoji, sans-serif`; ctx.textAlign = "center";
+    ctx.globalAlpha = .9; ctx.fillText("💚", a.x, by - s - 8*S); ctx.globalAlpha = 1;
+  }
+}
+
+/* ================= DRAW: TRASH ================= */
+function drawTrashShape(t){
+  const r = t.r;
+  switch(t.type){
+    case "tuete": {
+      const wob = Math.sin(t.phase*1.3)*0.12;
+      ctx.fillStyle = "rgba(240,246,252,.62)"; ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(-r*0.55, -r*0.75);
+      ctx.lineTo(r*0.55, -r*0.75);
+      ctx.quadraticCurveTo(r*(0.9+wob), r*0.1, r*0.65, r*0.85);
+      ctx.quadraticCurveTo(0, r*(1.15+wob), -r*0.65, r*0.85);
+      ctx.quadraticCurveTo(-r*(0.9-wob), r*0.1, -r*0.55, -r*0.75);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-r*0.45,-r*0.75); ctx.quadraticCurveTo(-r*0.35,-r*1.35,-r*0.12,-r*0.75);
+      ctx.moveTo(r*0.12,-r*0.75); ctx.quadraticCurveTo(r*0.35,-r*1.35,r*0.45,-r*0.75); ctx.stroke();
+      ctx.strokeStyle = "rgba(180,200,215,.6)";
+      ctx.beginPath(); ctx.moveTo(-r*0.2,-r*0.4); ctx.lineTo(-r*0.05,r*0.6); ctx.moveTo(r*0.25,-r*0.3); ctx.lineTo(r*0.15,r*0.5); ctx.stroke();
+      ctx.fillStyle = "rgba(255,90,90,.55)"; ctx.font = `700 ${r*0.38}px sans-serif`; ctx.textAlign="center"; ctx.fillText("SHOP", 0, r*0.15);
+      break;
+    }
+    case "folie": {
+      ctx.fillStyle = "rgba(225,240,250,.5)"; ctx.strokeStyle = "rgba(255,255,255,.75)"; ctx.lineWidth = 1.2;
+      const w = Math.sin(t.phase)*0.15;
+      ctx.beginPath();
+      ctx.moveTo(-r, -r*0.3);
+      ctx.bezierCurveTo(-r*0.4, -r*(0.9+w), r*0.3, -r*(0.8-w), r, -r*0.2);
+      ctx.bezierCurveTo(r*0.7, r*0.4, r*0.2, r*(0.9+w), -r*0.1, r*0.7);
+      ctx.bezierCurveTo(-r*0.6, r*0.9, -r*1.1, r*0.2, -r, -r*0.3);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      break;
+    }
+    case "becher": {
+      const g = ctx.createLinearGradient(-r*0.5,0,r*0.5,0);
+      g.addColorStop(0,"#f2f2f2"); g.addColorStop(.5,"#ffffff"); g.addColorStop(1,"#cfd6dc");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(-r*0.5,-r*0.7); ctx.lineTo(r*0.5,-r*0.7); ctx.lineTo(r*0.34,r*0.85); ctx.lineTo(-r*0.34,r*0.85); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#e85d5d"; ctx.fillRect(-r*0.44, -r*0.2, r*0.88, r*0.25);
+      ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.fillRect(-r*0.58,-r*0.84,r*1.16,r*0.16);
+      ctx.strokeStyle = "#ff4d6d"; ctx.lineWidth = r*0.12;
+      ctx.beginPath(); ctx.moveTo(r*0.1,-r*0.8); ctx.lineTo(r*0.3,-r*1.35); ctx.stroke();
+      break;
+    }
+    case "strohhalm": {
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = r*0.28;
+      ctx.beginPath(); ctx.moveTo(-r*0.9, r*0.2); ctx.lineTo(r*0.5, r*0.2); ctx.lineTo(r*0.9,-r*0.4); ctx.stroke();
+      ctx.strokeStyle = "#ff5a7a"; ctx.lineWidth = r*0.28; ctx.setLineDash([r*0.22, r*0.22]);
+      ctx.beginPath(); ctx.moveTo(-r*0.9, r*0.2); ctx.lineTo(r*0.5, r*0.2); ctx.lineTo(r*0.9,-r*0.4); ctx.stroke();
+      ctx.setLineDash([]);
+      break;
+    }
+    case "flasche": {
+      const g = ctx.createLinearGradient(-r*0.55,0,r*0.55,0);
+      g.addColorStop(0,"rgba(150,215,235,.75)"); g.addColorStop(.45,"rgba(225,250,255,.9)"); g.addColorStop(1,"rgba(110,180,210,.75)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(-r*0.22,-r*0.95); ctx.lineTo(r*0.22,-r*0.95); ctx.lineTo(r*0.22,-r*0.65);
+      ctx.quadraticCurveTo(r*0.55,-r*0.45, r*0.52,-r*0.1); ctx.lineTo(r*0.52, r*0.95);
+      ctx.quadraticCurveTo(0, r*1.1, -r*0.52, r*0.95); ctx.lineTo(-r*0.52,-r*0.1);
+      ctx.quadraticCurveTo(-r*0.55,-r*0.45, -r*0.22,-r*0.65); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#1e6fd9"; ctx.fillRect(-r*0.26,-r*1.15,r*0.52,r*0.24);
+      ctx.fillStyle = "#3fd6c0"; ctx.fillRect(-r*0.52, r*0.1, r*1.04, r*0.34);
+      ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.fillRect(-r*0.34,-r*0.3,r*0.1,r*1.1);
+      break;
+    }
+    case "ringe": {
+      ctx.strokeStyle = "rgba(235,240,245,.92)"; ctx.lineWidth = Math.max(1.6, r*0.14);
+      for(let row=0; row<2; row++) for(let c=0;c<3;c++){
+        ctx.beginPath(); ctx.ellipse(-r*0.6 + c*r*0.6, -r*0.28 + row*r*0.56, r*0.3, r*0.26, 0, 0, TAU); ctx.stroke();
+      }
+      break;
+    }
+    case "netz": {
+      const flash = t.hitFlash > 0 ? t.hitFlash : 0;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(-r, -r*0.3);
+      ctx.bezierCurveTo(-r*0.7,-r*0.95, r*0.5,-r*0.9, r, -r*0.35);
+      ctx.bezierCurveTo(r*1.1, r*0.3, r*0.5, r*0.9, -r*0.1, r*0.8);
+      ctx.bezierCurveTo(-r*0.8, r*0.75, -r*1.15, r*0.3, -r, -r*0.3);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(140,150,160,${0.12 + flash*0.3})`; ctx.fill();
+      ctx.clip();
+      ctx.strokeStyle = flash ? "rgba(255,255,255,.95)" : "rgba(160,170,178,.9)"; ctx.lineWidth = 1.2;
+      const step = r/3.5;
+      for(let i=-r*1.4;i<=r*1.4;i+=step){
+        ctx.beginPath(); ctx.moveTo(i - r, -r); ctx.lineTo(i + r, r); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(i + r, -r); ctx.lineTo(i - r, r); ctx.stroke();
+      }
+      ctx.restore();
+      ctx.strokeStyle = "rgba(160,170,178,.9)"; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(r*0.6, r*0.6); ctx.quadraticCurveTo(r*0.9, r*1.1, r*0.7, r*1.35); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-r*0.6, r*0.6); ctx.quadraticCurveTo(-r*0.4, r*1.0, -r*0.75, r*1.25); ctx.stroke();
+      ctx.fillStyle = "#ff8a3d";
+      ell(-r*0.75,-r*0.5,r*0.12,r*0.12); ell(r*0.1,-r*0.78,r*0.12,r*0.12); ell(r*0.8,-r*0.3,r*0.12,r*0.12);
+      // Lebenspunkte
+      if(t.maxHp > 1){
+        ctx.rotate(-(t.rot||0));
+        for(let i=0;i<t.maxHp;i++){
+          ctx.fillStyle = i < t.hp ? "#ffd36b" : "rgba(255,255,255,.25)";
+          ell(-r*0.3 + i*r*0.3, -r*1.15, r*0.09, r*0.09);
+        }
+      }
+      break;
+    }
+    case "fragment": {
+      ctx.fillStyle = t.color; ctx.globalAlpha *= 0.9;
+      ctx.beginPath(); ctx.moveTo(-r, -r*0.3); ctx.lineTo(-r*0.2,-r); ctx.lineTo(r, -r*0.4); ctx.lineTo(r*0.6, r*0.8); ctx.lineTo(-r*0.5, r*0.6); ctx.closePath(); ctx.fill();
+      break;
+    }
+  }
+}
+function drawTrash(t){
+  const onFloor = t.state === "onFloor";
+  const shrink = onFloor ? (1 - t.stage*0.2) : 1;
+  ctx.save();
+  ctx.translate(t.x, t.y);
+  const rot = t.type === "netz" ? Math.sin(t.phase*0.5)*0.15 : t.rot;
+  ctx.rotate(rot);
+  ctx.scale(shrink, shrink);
+  ctx.globalAlpha = onFloor ? 0.9 - t.stage*0.12 : 1;
+  const img = loadedImages[t.type];
+  if(img) ctx.drawImage(img, -t.r*1.1, -t.r*1.1, t.r*2.2, t.r*2.2);
+  else drawTrashShape(t);
+  // Risse beim Zerfall
+  if(onFloor && t.stage > 0 && t.type !== "fragment"){
+    ctx.strokeStyle = "rgba(60,40,20,.6)"; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(-t.r*0.4,-t.r*0.4); ctx.lineTo(0,0); ctx.lineTo(-t.r*0.1, t.r*0.5);
+    if(t.stage > 1){ ctx.moveTo(t.r*0.4,-t.r*0.3); ctx.lineTo(t.r*0.05, t.r*0.1); }
+    ctx.stroke();
+  }
+  ctx.restore();
+  // Zerfallsanzeige am Boden
+  if(onFloor && t.type !== "fragment"){
+    const len = (t.decayLen || t.cfg.decay) * (L.decayScale || 1);
+    const f = clamp((G.elapsed - t.landTime)/len, 0, 1);
+    ctx.strokeStyle = "rgba(255,120,90,.85)"; ctx.lineWidth = 3*S;
+    ctx.beginPath(); ctx.arc(t.x, t.y, t.r*0.9 + 6*S, -Math.PI/2, -Math.PI/2 + TAU*f); ctx.stroke();
+  }
+}
+
+function drawJelly(j, now){
+  const pulse = Math.max(0, Math.sin(j.ph));
+  const s = j.s, sx = 1 + pulse*0.12, sy = 1 - pulse*0.12;
+  ctx.save(); ctx.translate(j.x, j.y);
+  ctx.strokeStyle = `hsla(${j.hue},80%,85%,.6)`; ctx.lineWidth = 1.3;
+  for(let i=0;i<5;i++){
+    const x0 = -s*0.6 + i*s*0.3;
+    ctx.beginPath(); ctx.moveTo(x0, 0);
+    for(let k=1;k<=6;k++) ctx.lineTo(x0 + Math.sin(now*0.004 + i + k)*3*S, k*s*0.28);
+    ctx.stroke();
+  }
+  const g = ctx.createRadialGradient(0,-s*0.3,s*0.1, 0,-s*0.2,s);
+  g.addColorStop(0,`hsla(${j.hue},90%,92%,.85)`); g.addColorStop(1,`hsla(${j.hue},70%,70%,.45)`);
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.ellipse(0, 0, s*sx, s*0.8*sy, 0, Math.PI, TAU); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = `hsla(${j.hue},80%,80%,.5)`;
+  ell(0, -s*0.25, s*0.35, s*0.2);
+  ctx.restore();
+}
+function drawPlankton(q){
+  ctx.save(); ctx.translate(q.x, q.y + Math.sin(q.ph)*2);
+  ctx.fillStyle = "rgba(140,255,120,.25)"; ell(0,0,q.r*2.2,q.r*2.2);
+  ctx.fillStyle = "#7dff6a"; ell(0,0,q.r,q.r);
+  ctx.strokeStyle = "rgba(170,255,150,.8)"; ctx.lineWidth = 1;
+  for(let k=0;k<4;k++){ const a = q.ph + k*Math.PI/2; ctx.beginPath(); ctx.moveTo(Math.cos(a)*q.r, Math.sin(a)*q.r); ctx.lineTo(Math.cos(a)*q.r*2, Math.sin(a)*q.r*2); ctx.stroke(); }
+  ctx.restore();
+}
+function drawParticle(q){
+  if(q.kind === "faser"){
+    ctx.strokeStyle = q.col; ctx.lineWidth = 1.4*S;
+    ctx.beginPath();
+    const a = q.ang + Math.sin(q.ph)*0.5, l = 6*S;
+    ctx.moveTo(q.x - Math.cos(a)*l, q.y - Math.sin(a)*l);
+    ctx.quadraticCurveTo(q.x + Math.sin(q.ph)*3, q.y + Math.cos(q.ph)*3, q.x + Math.cos(a)*l, q.y + Math.sin(a)*l);
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = q.col;
+    ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, TAU); ctx.fill();
+    if(q.kind === "perle"){ ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.beginPath(); ctx.arc(q.x - q.r*0.3, q.y - q.r*0.3, q.r*0.35, 0, TAU); ctx.fill(); }
+  }
+}
+
+/* ================= DRAW: FX ================= */
+function drawFx(){
+  for(const r of ripples){
+    ctx.strokeStyle = `rgba(255,255,255,${r.life*0.6})`; ctx.lineWidth = 2*S;
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, TAU); ctx.stroke();
+  }
+  for(const s of sparks){
+    ctx.globalAlpha = clamp(s.life,0,1); ctx.fillStyle = s.color;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.textAlign = "center";
+  for(const p of popups){
+    ctx.globalAlpha = clamp(p.life, 0, 1);
+    const fs = (p.big ? 19 : p.small ? 13 : 16)*S;
+    ctx.font = `800 ${fs}px Segoe UI, system-ui, sans-serif`;
+    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0,20,35,.75)";
+    ctx.strokeText(p.text, p.x, p.y);
+    ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y);
+  }
+  ctx.globalAlpha = 1;
+}
+function drawCursor(){
+  if(screen !== "play" || !pointer.active) return;
+  if(L.filter && pointer.down){
+    const R = 52*S;
+    ctx.save();
+    const g = ctx.createRadialGradient(pointer.x, pointer.y, 4, pointer.x, pointer.y, R);
+    g.addColorStop(0,"rgba(200,255,245,.18)"); g.addColorStop(1,"rgba(200,255,245,.05)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(pointer.x, pointer.y, R, 0, TAU); ctx.fill();
+    ctx.clip();
+    ctx.strokeStyle = "rgba(220,255,250,.35)"; ctx.lineWidth = 1;
+    for(let i=-R;i<=R;i+=9*S){
+      ctx.beginPath(); ctx.moveTo(pointer.x + i, pointer.y - R); ctx.lineTo(pointer.x + i, pointer.y + R); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(pointer.x - R, pointer.y + i); ctx.lineTo(pointer.x + R, pointer.y + i); ctx.stroke();
+    }
+    ctx.restore();
+    ctx.strokeStyle = "rgba(220,255,250,.9)"; ctx.lineWidth = 2.5*S;
+    ctx.beginPath(); ctx.arc(pointer.x, pointer.y, R, 0, TAU); ctx.stroke();
+  } else if(pointer.type === "mouse"){
+    ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.setLineDash([4,4]); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(pointer.x, pointer.y, (L.filter ? 52 : 26)*S, 0, TAU); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+/* ================= RENDER ================= */
+function render(now){
+  ctx.save();
+  if(G && G.shake > 0) ctx.translate(rand(-G.shake,G.shake)*0.6, rand(-G.shake,G.shake)*0.6);
+  drawScene(now);
+  const inGame = (screen === "play" || screen === "pause" || screen === "result") && G;
+  if(inGame){
+    for(const t of trashes) if(t.state === "onFloor") drawTrash(t);
+    for(const q of plankton) drawPlankton(q);
+    for(const j of jellies) drawJelly(j, now);
+    for(const a of animals) drawAnimal(a, now);
+    for(const t of trashes) if(t.state !== "onFloor") drawTrash(t);
+    for(const q of particles) drawParticle(q);
+    drawFx();
+    drawCursor();
+  }
+  ctx.restore();
+  ctx.drawImage(vignetteCanvas, 0, 0, W, H);
+  if(G) for(const f of G.flashes){ ctx.fillStyle = `rgba(${f.color},${0.14*f.life})`; ctx.fillRect(0,0,W,H); }
+}
+
+/* ================= LOOP ================= */
+let last = performance.now();
+function loop(now){
+  let dt = now - last; last = now;
+  if(dt > 50) dt = 50; if(dt < 0) dt = 16;
+  if(screen === "play" && G && !G.ended) update(dt);
+  else if(screen === "play" && G && G.ended){ G.elapsed += dt*0.3; }
+  if(screen !== "pause") updateFx(dt);
+  render(now);
+  requestAnimationFrame(loop);
+}
+
+/* ================= HUD ================= */
+function buildHUD(){
+  const left = $("hudLeft"), right = $("hudRight");
+  let html = `<button class="iconBtn" id="btnPause" title="Pause">⏸</button>`;
+  html += `<div class="chip levelChip">Level ${L.id} · ${L.name}</div>`;
+  html += `<div class="chip" id="chip_deaths">💀 <span class="lbl">Tiere</span> <span id="t_deaths"></span><div class="bar"><div class="fill red" id="f_deaths"></div></div></div>`;
+  if(L.maxMicro) html += `<div class="chip" id="chip_env">🔬 <span class="lbl">Mikroplastik</span> <span id="t_env"></span><div class="bar"><div class="fill teal" id="f_env"></div></div></div>`;
+  if(L.maxLoad)  html += `<div class="chip" id="chip_env">☣️ <span class="lbl">Belastung</span> <span id="t_env"></span><div class="bar"><div class="fill violet" id="f_env"></div></div></div>`;
+  left.innerHTML = html;
+  right.innerHTML =
+    `<div class="chip">⭐ <span class="lbl">${L.sources ? "Budget" : "Punkte"}</span> <span id="t_score">0</span></div>` +
+    `<div class="chip">⏱ <span id="t_time">0s</span><div class="bar"><div class="fill gold" id="f_time"></div></div></div>`;
+  $("btnPause").addEventListener("click", pauseGame);
+}
+function updateHUD(){
+  if(!G || !$("t_deaths")) return;
+  $("t_deaths").textContent = G.deaths + "/" + L.maxDeaths;
+  $("f_deaths").style.width = (G.deaths/L.maxDeaths*100) + "%";
+  if($("t_env")){
+    const max = L.maxLoad || L.maxMicro, v = L.maxLoad ? Math.round(G.load) : G.micro;
+    $("t_env").textContent = Math.min(v,max) + "/" + max;
+    $("f_env").style.width = (Math.min(v,max)/max*100) + "%";
+  }
+  $("t_score").textContent = G.score;
+  if(L.sources) renderMeasures(true);
+}
+function updateTimeBar(){
+  if(!$("t_time")) return;
+  const rem = Math.max(0, Math.ceil((L.duration - G.elapsed)/1000));
+  $("t_time").textContent = rem + "s";
+  $("f_time").style.width = clamp(G.elapsed/L.duration,0,1)*100 + "%";
+}
+function renderMeasures(onlyState){
+  const box = $("measures");
+  if(!onlyState || !box.children.length){
+    box.innerHTML = MEASURES.map(m =>
+      `<button class="measure" data-id="${m.id}"><span class="mi">${m.icon}</span><span><div class="mt">${m.title}</div><div class="mc" id="mc_${m.id}">${m.cost} Budget</div></span></button>`
+    ).join("");
+    box.querySelectorAll(".measure").forEach(b => b.addEventListener("click", ()=> applyMeasure(b.dataset.id)));
+  }
+  MEASURES.forEach(m=>{
+    const b = box.querySelector(`[data-id="${m.id}"]`); if(!b) return;
+    const done = G && G.measures.includes(m.id);
+    b.classList.toggle("done", !!done);
+    b.classList.toggle("ready", !done && G && G.score >= m.cost);
+    b.classList.toggle("locked", !done && (!G || G.score < m.cost));
+    const mc = $("mc_" + m.id); if(mc) mc.textContent = done ? "✓ umgesetzt" : m.cost + " Budget";
+  });
+}
+let coachTimer = null;
+function coach(text, ms){
+  const el = $("coach"); el.textContent = text; el.classList.add("show");
+  clearTimeout(coachTimer); coachTimer = setTimeout(hideCoach, ms || 3000);
+}
+function hideCoach(){ $("coach").classList.remove("show"); }
+
+/* ================= INPUT ================= */
+function canvasPos(e){ const r = canvas.getBoundingClientRect(); return {x:e.clientX - r.left, y:e.clientY - r.top}; }
+canvas.addEventListener("pointermove", e=>{
+  const p = canvasPos(e); pointer.x = p.x; pointer.y = p.y; pointer.active = true; pointer.type = e.pointerType;
+});
+canvas.addEventListener("pointerleave", ()=>{ if(pointer.type === "mouse") pointer.active = false; pointer.down = false; });
+canvas.addEventListener("pointerup", ()=>{ pointer.down = false; if(pointer.type !== "mouse") pointer.active = false; });
+canvas.addEventListener("pointercancel", ()=>{ pointer.down = false; pointer.active = false; });
+canvas.addEventListener("pointerdown", e=>{
+  markActivity();
+  if(screen !== "play" || !G || G.ended) return;
+  const p = canvasPos(e);
+  pointer.x = p.x; pointer.y = p.y; pointer.down = true; pointer.active = true; pointer.type = e.pointerType;
+  try{ canvas.setPointerCapture(e.pointerId); }catch(_){}
+  ripples.push({x:p.x, y:p.y, r:6*S, life:1});
+  // nächstes Objekt bestimmen
+  let best = null, bestD = Infinity, bestKind = null;
+  for(const t of trashes){
+    if(t.state === "gone") continue;
+    const d = dist(p.x, p.y, t.x, t.y);
+    if(d < t.r + 24*S && d < bestD){ best = t; bestD = d; bestKind = "trash"; }
+  }
+  for(const j of jellies){
+    const d = dist(p.x, p.y, j.x, j.y + j.s*0.3);
+    if(d < j.s + 10*S && d < bestD - 4){ best = j; bestD = d; bestKind = "jelly"; }
+  }
+  if(bestKind === "trash") hitTrash(best, p.x, p.y);
+  else if(bestKind === "jelly"){
+    G.confusions++; G.score = Math.max(0, G.score - 5);
+    popups.push({x:best.x, y:best.y - best.s, text:"Das war eine echte Qualle! −5", life:1.4, color:"#ffc2f0", big:true});
+    best.vy = -Math.abs(best.vy)*2;
+    updateHUD();
+  }
+});
+
+/* ================= SCREENS ================= */
+const SCREENS = {start:"sStart", map:"sMap", brief:"sBrief", pause:"sPause", result:"sResult", quiz:"sQuiz", final:"sFinal"};
+function showScreen(name){
+  screen = name;
+  Object.entries(SCREENS).forEach(([k,id])=> $(id).classList.toggle("hidden", k !== name));
+  $("homeBtn").classList.toggle("hidden", !(name === "start" || name === "map"));
+}
+function starsHTML(n){ return [0,1,2].map(i=> i < n ? "★" : `<span class="off">★</span>`).join(""); }
+
+function buildMap(){
+  const grid = $("mapGrid");
+  grid.innerHTML = LEVELS.map((lv,i)=>{
+    const locked = i+1 > progress.unlocked;
+    const done = progress.stars[i] > 0;
+    const current = !locked && !done;
+    return `<button class="node ${locked?"locked":""} ${done?"done":""} ${current?"current":""}" data-i="${i}">
+      ${locked ? '<span class="lock">🔒</span>' : ""}
+      <span class="num">${lv.id}</span>
+      <span class="ico">${lv.icon}</span>
+      <span class="nt">${lv.name}</span>
+      <span class="np">${lv.topic}</span>
+      <span class="st">${starsHTML(progress.stars[i])}</span>
+    </button>`;
+  }).join("");
+  grid.querySelectorAll(".node").forEach(n=> n.addEventListener("click", ()=>{
+    const i = +n.dataset.i;
+    if(i+1 > progress.unlocked){ n.animate([{transform:"translateX(0)"},{transform:"translateX(-6px)"},{transform:"translateX(6px)"},{transform:"translateX(0)"}],{duration:300}); return; }
+    showBriefing(i);
+  }));
+}
+function showBriefing(i){
+  LI = i; L = LEVELS[i];
+  setTheme(L.theme);
+  G = null;
+  const goals = [`⏱ ${L.duration/1000} Sekunden durchhalten`, `💀 höchstens ${L.maxDeaths-1} Tiere verlieren`];
+  if(L.maxMicro) goals.push(`🔬 unter ${L.maxMicro} Mikroplastik bleiben`);
+  if(L.maxLoad) goals.push(`☣️ Belastung unter ${L.maxLoad} halten`);
+  $("briefCard").innerHTML = `
+    <div class="kicker">Level ${L.id} von ${LEVELS.length} · ${L.topic}</div>
+    <h1>${L.icon} ${L.name}</h1>
+    <p>${L.story}</p>
+    <div class="infoGrid">
+      <div class="box"><h3>DARUM GEHT'S</h3><ul>${L.learn.map(x=>`<li><span class="li">${x[0]}</span><span>${x[1]}</span></li>`).join("")}</ul></div>
+      <div class="box"><h3>SO SPIELST DU</h3><ul>${L.howto.map(x=>`<li><span class="li">${x[0]}</span><span>${x[1]}</span></li>`).join("")}</ul></div>
+    </div>
+    <div class="goals">${goals.map(g=>`<span class="goal">${g}</span>`).join("")}</div>
+    <div class="btnRow">
+      <button class="btn secondary" id="btnBriefBack">Zur Übersicht</button>
+      <button class="btn" id="btnBriefGo">▶ Level starten</button>
+    </div>`;
+  $("btnBriefBack").addEventListener("click", ()=>{ buildMap(); showScreen("map"); });
+  $("btnBriefGo").addEventListener("click", ()=> startLevel(i));
+  showScreen("brief");
+}
+function pauseGame(){
+  if(screen !== "play" || !G || G.ended) return;
+  pointer.down = false;
+  showScreen("pause");
+}
+function factHTML(f){ return `<div class="fact"><div class="fi">${f.icon}</div><div><h3>${f.title}</h3><p>${f.text}</p></div></div>`; }
+
+function buildResult(win, reason, stars){
+  const reasons = {
+    deaths:["😢 Zu viele Tiere sind gestorben", `Das Limit von ${L.maxDeaths} Tieren wurde erreicht.`],
+    micro:["😢 Zu viel Mikroplastik", `Am Meeresboden haben sich ${L.maxMicro} Einheiten Mikroplastik angesammelt.`],
+    load:["😢 Die Belastung ist zu hoch", "Die Tiere haben zu viel Mikroplastik aufgenommen."]
+  };
+  const stats = [
+    [G.collected, "Müll gesammelt"],
+    [G.deaths, "Tiere gestorben"]
+  ];
+  if(L.rescue) stats.push([G.rescued, "Tiere befreit"]);
+  if(L.maxMicro) stats.push([G.micro, "Mikroplastik"]);
+  if(L.maxLoad){ stats.push([G.filtered, "Partikel gefiltert"]); stats.push([G.planktonHit, "Plankton erwischt"]); }
+  if(L.jelly) stats.push([G.confusions, "Quallen verwechselt"]);
+  if(L.sources) stats.push([G.measures.length + "/4", "Maßnahmen"]);
+  stats.push([G.score, L.sources ? "Budget übrig" : "Punkte"]);
+
+  let reflection = "";
+  if(L.filter) reflection = `<p><b>Gut zu wissen:</b> Du hast ${G.filtered} Teilchen gefiltert – aber ständig kamen neue nach, und ${G.planktonHit} Plankton-Lebewesen landeten mit im Filter. Genau das ist das Problem im echten Meer.</p>`;
+  if(L.sources) reflection = `<p><b>Gut zu wissen:</b> ${G.measures.length >= 3 ? "Mit deinen Maßnahmen ist der Müllstrom fast versiegt." : "Je mehr Quellen du schließt, desto weniger musst du einsammeln."} Vermeiden wirkt stärker als Aufräumen.</p>`;
+  if(L.jelly && win) reflection = `<p><b>Gut zu wissen:</b> ${G.confusions === 0 ? "Du hast keine einzige Qualle verwechselt – die Schildkröten haben es da schwerer." : `Du hast ${G.confusions}× eine Qualle für Müll gehalten. Für Schildkröten ist der Unterschied noch schwerer zu erkennen.`}</p>`;
+
+  $("resultCard").innerHTML = `
+    <div class="kicker">Level ${L.id} · ${L.name}</div>
+    <h1>${win ? "🎉 Level geschafft!" : reasons[reason][0]}</h1>
+    ${win ? `<div class="stars" id="resStars"><span>★</span><span>★</span><span>★</span></div>` : `<p class="subtitle">${reasons[reason][1]}</p>`}
+    <div class="stats">${stats.map(s=>`<div class="stat"><div class="v">${s[0]}</div><div class="k">${s[1]}</div></div>`).join("")}</div>
+    ${reflection}
+    <h2>Wusstest du?</h2>
+    <div class="facts">${L.facts.map(factHTML).join("")}</div>
+    <div class="btnRow">
+      ${win
+        ? `<button class="btn secondary" id="btnResRetry">↻ Nochmal spielen</button><button class="btn gold" id="btnResQuiz">🧠 Zum Wissens-Check</button>`
+        : `<button class="btn secondary" id="btnResMap">Zur Übersicht</button><button class="btn" id="btnResRetry">↻ Nochmal versuchen</button>`}
+    </div>`;
+  $("btnResRetry").addEventListener("click", ()=> startLevel(LI));
+  if(win){
+    $("btnResQuiz").addEventListener("click", ()=> startQuiz());
+    const sp = $("resStars").children;
+    for(let i=0;i<stars;i++) setTimeout(()=> sp[i].classList.add("on"), 350 + i*320);
+  } else {
+    $("btnResMap").addEventListener("click", ()=>{ buildMap(); showScreen("map"); });
+  }
+  $("resultCard").scrollTop = 0;
+}
+
+/* ================= QUIZ ================= */
+let quizIdx = 0, quizCorrect = 0;
+function startQuiz(){ quizIdx = 0; quizCorrect = 0; renderQuestion(); showScreen("quiz"); }
+function renderQuestion(){
+  const q = L.quiz[quizIdx];
+  $("quizCard").innerHTML = `
+    <div class="kicker">Wissens-Check · Frage ${quizIdx+1} von ${L.quiz.length}</div>
+    <h1 style="font-size:25px; margin-top:8px">${q.q}</h1>
+    <div class="opts">${q.o.map((o,i)=>`<button class="opt" data-i="${i}"><span class="ol">${"ABC"[i]}</span><span>${o}</span></button>`).join("")}</div>
+    <div id="qFeedback"></div>`;
+  $("quizCard").querySelectorAll(".opt").forEach(b=> b.addEventListener("click", ()=> answer(+b.dataset.i)));
+}
+function answer(i){
+  const q = L.quiz[quizIdx];
+  const ok = i === q.a;
+  if(ok) quizCorrect++;
+  $("quizCard").querySelectorAll(".opt").forEach(b=>{
+    const bi = +b.dataset.i; b.disabled = true;
+    if(bi === q.a) b.classList.add("correct");
+    else if(bi === i) b.classList.add("wrong");
+  });
+  const last = quizIdx === L.quiz.length - 1;
+  $("qFeedback").innerHTML = `
+    <div class="feedback ${ok?"":"bad"}"><b>${ok ? "Richtig!" : "Nicht ganz."}</b> ${q.e}</div>
+    <div class="btnRow"><button class="btn" id="btnQNext">${last ? "Ergebnis ansehen" : "Nächste Frage ▶"}</button></div>`;
+  $("btnQNext").addEventListener("click", ()=>{
+    if(!last){ quizIdx++; renderQuestion(); }
+    else quizSummary();
+  });
+}
+function quizSummary(){
+  progress.quiz[LI] = Math.max(progress.quiz[LI], quizCorrect);
+  const isLast = LI === LEVELS.length - 1;
+  const next = LEVELS[LI+1];
+  $("quizCard").innerHTML = `
+    <div class="kicker">Wissens-Check · Level ${L.id}</div>
+    <h1>${quizCorrect === L.quiz.length ? "🧠 Alles gewusst!" : quizCorrect > 0 ? "👍 Gut gemacht!" : "📚 Weiter lernen!"}</h1>
+    <p class="subtitle">${quizCorrect} von ${L.quiz.length} Fragen richtig</p>
+    ${isLast
+      ? `<p>Du hast die ganze Lernstrecke geschafft. Zeit für deine Urkunde!</p>`
+      : `<p>Als Nächstes: <b>${next.icon} Level ${next.id} – ${next.name}</b><br>${next.topic}.</p>`}
+    <div class="btnRow">
+      <button class="btn secondary" id="btnQMap">Zur Übersicht</button>
+      <button class="btn gold" id="btnQNextLvl">${isLast ? "🏅 Zur Urkunde" : "▶ Weiter zu Level " + next.id}</button>
+    </div>`;
+  $("btnQMap").addEventListener("click", ()=>{ buildMap(); showScreen("map"); });
+  $("btnQNextLvl").addEventListener("click", ()=>{ isLast ? showFinal() : showBriefing(LI+1); });
+}
+
+/* ================= FINAL ================= */
+function showFinal(){
+  const totalStars = progress.stars.reduce((a,b)=>a+b,0);
+  const totalQuiz = progress.quiz.reduce((a,b)=>a+b,0);
+  const rank = totalStars >= 13 ? "Meeres-Held:in" : totalStars >= 9 ? "Ocean Guard" : "Meeresschützer:in in Ausbildung";
+  const lessons = [
+    ["🐢","Tiere verwechseln Plastik mit Nahrung und verhungern mit vollem Magen."],
+    ["🕸️","Verlorene Netze fischen weiter und lassen Tiere ertrinken."],
+    ["🧩","Plastik verschwindet nicht – es zerfällt über Jahrhunderte zu Mikroplastik."],
+    ["🔬","Mikroplastik gelangt in die Nahrungskette und lässt sich kaum zurückholen."],
+    ["🛑","Am wirksamsten ist es, Plastik gar nicht erst ins Meer gelangen zu lassen."]
+  ];
+  $("finalCard").innerHTML = `
+    <div class="kicker">Lernstrecke abgeschlossen</div>
+    <div class="certificate">
+      <div style="font-size:46px">🏅</div>
+      <h1>Urkunde: ${rank}</h1>
+      <p class="subtitle">⭐ ${totalStars} von 15 Sternen · 🧠 ${totalQuiz} von 10 Fragen richtig</p>
+      <div class="lessons">${lessons.map(l=>`<div class="lesson"><span class="li">${l[0]}</span><span>${l[1]}</span></div>`).join("")}</div>
+    </div>
+    <h2>Was du selbst tun kannst</h2>
+    <div class="tips">${FINAL_TIPS.map(t=>`<div class="tip"><span class="ti">${t.i}</span>${t.t}</div>`).join("")}</div>
+    <div class="btnRow">
+      <button class="btn secondary" id="btnFinMap">Zur Übersicht</button>
+      <button class="btn" id="btnFinRestart">🔄 Neue Lernstrecke starten</button>
+    </div>
+    <div class="note">Zahlen und Zerfallszeiten sind wissenschaftliche Schätzwerte (u. a. NOAA, Umweltbundesamt).</div>`;
+  $("btnFinMap").addEventListener("click", ()=>{ buildMap(); showScreen("map"); });
+  $("btnFinRestart").addEventListener("click", resetAll);
+  showScreen("final");
+}
+
+/* ================= NAVIGATION ================= */
+function resetAll(){
+  progress.unlocked = 1; progress.stars = [0,0,0,0,0]; progress.quiz = [0,0,0,0,0];
+  G = null; L = LEVELS[0];
+  $("hud").classList.add("hidden"); $("measures").classList.add("hidden"); hideCoach();
+  setTheme("kueste");
+  showScreen("start");
+}
+function goLauncher(){
+  // Kiosk: Rückkehr zum Launcher über den lokalen Mini-Server
+  try{ fetch("http://127.0.0.1:45231/back").catch(()=>{}); }catch(_){}
+}
+
+$("btnStart").addEventListener("click", ()=>{ buildMap(); showScreen("map"); });
+$("btnMapBack").addEventListener("click", ()=> showScreen("start"));
+$("btnResume").addEventListener("click", ()=>{ showScreen("play"); });
+$("btnRestartLvl").addEventListener("click", ()=> startLevel(LI));
+$("btnPauseMap").addEventListener("click", ()=>{
+  $("hud").classList.add("hidden"); $("measures").classList.add("hidden"); hideCoach();
+  G = null; buildMap(); showScreen("map");
+});
+$("homeBtn").addEventListener("click", goLauncher);
+document.addEventListener("keydown", e=>{
+  if(e.key === "p" || e.key === " "){ if(screen === "play") pauseGame(); else if(screen === "pause") showScreen("play"); }
+});
+document.addEventListener("visibilitychange", ()=>{ if(document.hidden) pauseGame(); });
+
+/* ===== Inaktivität (Kiosk): nach 2 Minuten zurück zum Start ===== */
+let lastActivity = performance.now();
+function markActivity(){ lastActivity = performance.now(); }
+document.addEventListener("pointerdown", markActivity, true);
+document.addEventListener("keydown", markActivity, true);
+setInterval(()=>{
+  if(screen === "start") return;
+  const idle = performance.now() - lastActivity;
+  if(idle > 120000) resetAll();
+}, 5000);
+
+/* ================= INIT ================= */
+layout();
+requestAnimationFrame(loop);
+
+
+})();
+</script>
+</body>
+</html>
